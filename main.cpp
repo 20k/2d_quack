@@ -121,9 +121,45 @@ struct physics_barrier : renderable
         return false;
     }
 
+    bool within(vec2f pos)
+    {
+        vec2f normal = get_normal();
+
+        vec2f n1 = p1 + normal;
+        vec2f n2 = p2 + normal;
+
+        int sn1 = physics_barrier::side(pos, p1, n1);
+        int sn2 = physics_barrier::side(pos, p2, n2);
+
+        if(sn1 != sn2)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     vec2f get_normal()
     {
         return (p2 - p1).rot(M_PI/2).norm();
+    }
+
+    vec2f get_normal_towards(vec2f pos)
+    {
+        vec2f rel = (pos - (p1 + p2)/2.f);
+
+        vec2f n_1 = (p2 - p1).norm().rot(M_PI/2.f);
+        vec2f n_2 = (p2 - p1).norm().rot(-M_PI/2.f);
+
+        float a1 = angle_between_vectors(n_1, rel);
+        float a2 = angle_between_vectors(n_2, rel);
+
+        if(fabs(a1) < fabs(a2))
+        {
+            return n_1;
+        }
+
+        return n_2;
     }
 };
 
@@ -169,8 +205,19 @@ struct character : renderable
     vec2f pos;
     //vec2f velocity;
     vec2f acceleration;
+    vec2f impulse;
+
+    //bool jumped = false;
+    float jump_stick_cooldown_cur = 0.f;
+    float jump_stick_cooldown_time = 0.05f;
+
+    bool can_jump = false;
+    vec2f jump_dir;
 
     float last_dt = 1.f;
+
+    float jump_cooldown_cur = 0.f;
+    float jump_cooldown_time = 0.15f;
 
     void render(sf::RenderWindow& win) override
     {
@@ -236,11 +283,28 @@ struct character : renderable
     {
         for(physics_barrier* bar : physics_barrier_manage.phys)
         {
+            bool did_phys = false;
+
             if(bar->crosses(pos, next_pos))
             {
-                //printf("hello\n");
-
                 next_pos = stick_physics(next_pos, bar);
+
+                did_phys = true;
+            }
+
+            float line_jump_dist = 2;
+
+            vec2f dist = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), next_pos);
+
+            if(dist.length() < line_jump_dist && bar->within(next_pos))
+            {
+                /*if(!did_phys && jump_stick_cooldown_cur >= jump_stick_cooldown_time)
+                {
+                    next_pos = stick_physics(next_pos, bar);
+                }*/
+
+                can_jump = true;
+                jump_dir += bar->get_normal_towards(next_pos);
             }
         }
 
@@ -249,6 +313,9 @@ struct character : renderable
 
     void tick(float dt, physics_barrier_manager& physics_barrier_manage)
     {
+        can_jump = false;
+        jump_dir = {0,0};
+
         //clamp_velocity();
 
         //if(dt <= 0.000001f)
@@ -258,11 +325,13 @@ struct character : renderable
 
         float dt_f = dt / last_dt;
 
+        dt_f = 1.f;
+
         //float friction = 0.99f;
 
         vec2f friction = {1.f, 1.f};
 
-        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * dt * dt;
+        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * dt * dt + impulse;
 
         float max_speed = 0.85f;
 
@@ -297,16 +366,36 @@ struct character : renderable
         //std::cout << (pos - last_pos).length() << std::endl;
 
         acceleration = {0,0};
+        impulse = {0,0};
+
+        jump_cooldown_cur += dt;
+        jump_stick_cooldown_cur += dt;
     }
 
     void do_gravity(vec2f dir)
     {
-        acceleration += dir * 100.f;
+        acceleration += dir * 800.f;
     }
 
     void set_movement(vec2f dir)
     {
         acceleration += dir * 8.f;
+    }
+
+    void jump()
+    {
+        if(!can_jump)
+            return;
+
+        if(jump_cooldown_cur < jump_cooldown_time)
+            return;
+
+        impulse += jump_dir.norm() * 0.85f;
+        //acceleration += jump_dir.norm() * 200000.f;
+        jump_cooldown_cur = 0;
+        jump_stick_cooldown_cur = 0.f;
+
+        std::cout << jump_dir << std::endl;
     }
 };
 
@@ -349,6 +438,7 @@ int main()
     sf::Keyboard key;
     sf::Mouse mouse;
 
+    sf::sleep(sf::milliseconds(1));
 
     while(win.isOpen())
     {
@@ -381,7 +471,7 @@ int main()
             move_dir.y() -= (int)key.isKeyPressed(sf::Keyboard::W);
         }
 
-        if(ONCE_MACRO(sf::Mouse::Left))
+        if(ONCE_MACRO(sf::Mouse::Left) && win.hasFocus())
         {
             physics_barrier_manage.add_point(mpos, renderable_manage);
         }
@@ -393,6 +483,12 @@ int main()
         win.clear();
 
         character_manage.tick(dt_s, physics_barrier_manage);
+
+        if(ONCE_MACRO(sf::Keyboard::Space) && win.hasFocus())
+        {
+            test->jump();
+        }
+
         renderable_manage.draw(win);
 
         win.display();
