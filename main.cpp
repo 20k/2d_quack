@@ -2,6 +2,8 @@
 #include <vec/vec.hpp>
 
 #include <SFML/Graphics.hpp>
+#include <imgui/imgui.h>
+#include <imgui/imgui-SFML.h>
 #include "util.hpp"
 
 struct renderable
@@ -517,11 +519,62 @@ struct character_manager
     }
 };
 
+struct debug_controls
+{
+    int state = 0;
+
+    void editor_controls()
+    {
+
+    }
+
+    void player_controls()
+    {
+
+    }
+
+    void tick()
+    {
+        ImGui::Begin("Control menus");
+
+        std::vector<std::string> modes{"Editor", "Player"};
+
+        for(int i=0; i<modes.size(); i++)
+        {
+            std::string str = modes[i];
+
+            if(state == i)
+            {
+                str += " <--";
+            }
+
+            if(ImGui::Button(str.c_str()))
+            {
+                state = i;
+            }
+        }
+
+        if(state == 0)
+        {
+            editor_controls();
+        }
+
+        if(state == 1)
+        {
+            player_controls();
+        }
+
+        ImGui::End();
+    }
+};
 
 int main()
 {
     sf::RenderWindow win;
     win.create(sf::VideoMode(1500, 1000), "fak u mark");
+
+    ImGui::SFML::Init(win);
+    ImGui::NewFrame();
 
     renderable_manager renderable_manage;
     character_manager character_manage;
@@ -533,6 +586,8 @@ int main()
 
     physics_barrier_manager physics_barrier_manage;
 
+    debug_controls controls;
+
     sf::Clock clk;
 
     sf::Keyboard key;
@@ -541,6 +596,8 @@ int main()
     sf::sleep(sf::milliseconds(1));
 
     uint32_t frame = 0;
+
+    bool suppress_mouse = false;
 
     while(win.isOpen())
     {
@@ -552,13 +609,27 @@ int main()
 
         sf::Event event;
 
+        float scrollwheel_delta;
+
         while(win.pollEvent(event))
         {
+            ImGui::SFML::ProcessEvent(event);
+
             if(event.type == sf::Event::Closed)
             {
                 win.close();
             }
+
+            if(event.type == sf::Event::MouseWheelScrolled && event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel)
+                scrollwheel_delta -= event.mouseWheelScroll.delta;
         }
+
+        ImGui::SFML::Update(clk.restart());
+
+        const ImGuiIO& io = ImGui::GetIO();
+
+        if(io.WantCaptureMouse)
+            suppress_mouse = true;
 
         vec2f move_dir;
 
@@ -580,20 +651,25 @@ int main()
 
         //test->velocity += move_dir * mult;
 
-        test->set_movement(move_dir * mult);
+        controls.tick();
 
-        win.clear();
-
-        if(frame > 1)
-            character_manage.tick(dt_s, physics_barrier_manage);
-
-        if(ONCE_MACRO(sf::Keyboard::Space) && win.hasFocus())
+        if(controls.state == 1)
         {
-            test->jump();
+            test->set_movement(move_dir * mult);
+
+            if(frame > 1)
+                character_manage.tick(dt_s, physics_barrier_manage);
+
+            if(ONCE_MACRO(sf::Keyboard::Space) && win.hasFocus())
+            {
+                test->jump();
+            }
         }
 
+        win.clear();
         renderable_manage.draw(win);
 
+        ImGui::Render();
         win.display();
 
         sf::sleep(sf::milliseconds(1));
