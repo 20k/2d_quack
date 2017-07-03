@@ -525,6 +525,7 @@ struct character : renderable, damageable
         //vec2f next_pos_player_only = pos + (pos - last_pos) * dt_f * friction + player_acceleration * dt * dt;
 
         //vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + impulse;
+        ///not sure if we need to factor in (dt + last_dt)/2 into impulse?
         vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + (impulse * dt);
 
         float max_speed = 0.85f;
