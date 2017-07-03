@@ -49,6 +49,34 @@ struct renderable_manager
     }
 };
 
+struct damageable
+{
+    float hp = 1.f;
+    float max_hp = 1.f;
+
+    void damage(float amount)
+    {
+        hp -= amount;
+
+        hp = std::max(hp, 0.f);
+    }
+
+    float get_hp()
+    {
+        return hp;
+    }
+
+    void reset_hp()
+    {
+        hp = max_hp;
+    }
+
+    bool dead()
+    {
+        return hp <= 0.f;
+    }
+};
+
 struct physics_barrier : renderable
 {
     vec2f p1;
@@ -203,9 +231,68 @@ struct physics_barrier_manager
     }
 };
 
-struct character : renderable
+
+struct game_world_manager : renderable
+{
+    int cur_spawn = 0;
+    std::vector<vec2f> spawn_positions;
+
+    bool should_render = false;
+
+    void add(vec2f pos)
+    {
+        spawn_positions.push_back(pos);
+    }
+
+    void render(sf::RenderWindow& win) override
+    {
+        if(!should_render)
+            return;
+
+        float rad = 8;
+
+        sf::CircleShape circle;
+        circle.setRadius(rad);
+        circle.setOrigin(rad, rad);
+        circle.setFillColor(sf::Color(255, 128, 255));
+
+        for(vec2f& pos : spawn_positions)
+        {
+            circle.setPosition({pos.x(), pos.y()});
+            win.draw(circle);
+        }
+    }
+
+    void enable_rendering()
+    {
+        should_render = true;
+    }
+
+    void disable_rendering()
+    {
+        should_render = false;
+    }
+
+    vec2f get_next_spawn()
+    {
+        if(spawn_positions.size() == 0)
+            return {0,0};
+
+        vec2f pos = spawn_positions[cur_spawn];
+
+        cur_spawn = (cur_spawn + 1) % spawn_positions.size();
+
+        return pos;
+    }
+};
+
+
+struct character : renderable, damageable
 {
     bool spawned = false;
+    float spawn_timer = 0.f;
+    float spawn_timer_max = 5.f;
+
     vec2f last_pos;
     vec2f pos;
     //vec2f velocity;
@@ -392,7 +479,29 @@ struct character : renderable
         return next_pos;
     }
 
-    void tick(float dt, physics_barrier_manager& physics_barrier_manage)
+    void spawn(game_world_manager& game_world_manage)
+    {
+        vec2f spawn_pos = game_world_manage.get_next_spawn();
+
+        pos = spawn_pos;
+
+        reset_hp();
+    }
+
+    void tick_spawn(float dt, game_world_manager& game_world_manage)
+    {
+        if(dead())
+        {
+            spawn_timer += dt;
+
+            if(spawn_timer >= spawn_timer_max)
+            {
+                spawn(game_world_manage);
+            }
+        }
+    }
+
+    void tick(float dt, physics_barrier_manager& physics_barrier_manage, game_world_manager& game_world_manage)
     {
         stuck_to_surface = false;
         can_jump = false;
@@ -407,7 +516,7 @@ struct character : renderable
 
         float dt_f = dt / last_dt;
 
-        dt_f = 1.f;
+        //dt_f = 1.f;
 
         //float friction = 0.99f;
 
@@ -415,7 +524,8 @@ struct character : renderable
 
         //vec2f next_pos_player_only = pos + (pos - last_pos) * dt_f * friction + player_acceleration * dt * dt;
 
-        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * dt * dt + impulse;
+        //vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + impulse;
+        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + (impulse * dt);
 
         float max_speed = 0.85f;
 
@@ -478,6 +588,8 @@ struct character : renderable
 
         jump_cooldown_cur += dt;
         jump_stick_cooldown_cur += dt;
+
+        tick_spawn(dt, game_world_manage);
     }
 
     void do_gravity(vec2f dir)
@@ -498,7 +610,7 @@ struct character : renderable
         if(jump_cooldown_cur < jump_cooldown_time)
             return;
 
-        impulse += jump_dir.norm() * 0.95f;
+        impulse += jump_dir.norm() * 0.45f * 1000.f;
         //acceleration += jump_dir.norm() * 200000.f;
         jump_cooldown_cur = 0;
         jump_stick_cooldown_cur = 0.f;
@@ -516,53 +628,12 @@ struct character_manager
         characters.push_back(c);
     }
 
-    void tick(float dt_s, physics_barrier_manager& physics_barrier_manage)
+    void tick(float dt_s, physics_barrier_manager& physics_barrier_manage, game_world_manager& game_world_manage)
     {
         for(character* c : characters)
         {
-            c->tick(dt_s, physics_barrier_manage);
+            c->tick(dt_s, physics_barrier_manage, game_world_manage);
         }
-    }
-};
-
-struct game_world_manager : renderable
-{
-    std::vector<vec2f> spawn_positions;
-
-    bool should_render = false;
-
-    void add(vec2f pos)
-    {
-        spawn_positions.push_back(pos);
-    }
-
-    void render(sf::RenderWindow& win) override
-    {
-        if(!should_render)
-            return;
-
-        float rad = 8;
-
-        sf::CircleShape circle;
-        circle.setRadius(rad);
-        circle.setOrigin(rad, rad);
-        circle.setFillColor(sf::Color(255, 128, 255));
-
-        for(vec2f& pos : spawn_positions)
-        {
-            circle.setPosition({pos.x(), pos.y()});
-            win.draw(circle);
-        }
-    }
-
-    void enable_rendering()
-    {
-        should_render = true;
-    }
-
-    void disable_rendering()
-    {
-        should_render = false;
     }
 };
 
@@ -768,7 +839,7 @@ int main()
             test->set_movement(move_dir * mult);
 
             if(frame > 1)
-                character_manage.tick(dt_s, physics_barrier_manage);
+                character_manage.tick(dt_s, physics_barrier_manage, game_world_manage);
 
             if(ONCE_MACRO(sf::Keyboard::Space) && win.hasFocus())
             {
