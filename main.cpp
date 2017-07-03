@@ -224,7 +224,26 @@ struct character : renderable
         renderable::render(win, pos);
     }
 
-    vec2f reflect_physics(vec2f next_pos, physics_barrier* bar)
+    vec2f last_resort_physics(vec2f next_pos, physics_barrier* bar)
+    {
+        vec2f total_dir = next_pos - pos;
+
+        for(int i=0; i<100; i++)
+        {
+            if(bar->crosses(pos, pos + total_dir))
+            {
+                total_dir = total_dir / 2.f;
+            }
+            else
+            {
+                return pos + total_dir;
+            }
+        }
+
+        return pos;
+    }
+
+    /*vec2f reflect_physics(vec2f next_pos, physics_barrier* bar)
     {
         vec2f cdir = (next_pos - pos).norm();
         float clen = (next_pos - pos).length();
@@ -239,10 +258,10 @@ struct character : renderable
         next_pos = ndir * clen + pos;// + to_line - to_line.norm() * 0.25f;
 
         return next_pos;
-    }
+    }*/
 
     ///instead of line normal use vertical
-    vec2f stick_physics(vec2f next_pos, physics_barrier* bar)
+    vec2f stick_physics(vec2f next_pos, physics_barrier* bar, vec2f& accumulate_shift)
     {
         float approx_ish_velocity = (pos - last_pos).length();
 
@@ -272,7 +291,11 @@ struct character : renderable
 
         vec2f projected = projection(next_pos - pos, dir);
 
-        pos += to_line - to_line.norm();
+        //accumulate_shift += to_line - to_line.norm();
+
+        accumulate_shift += -to_line.norm();
+
+        //pos += to_line - to_line.norm();
         next_pos = projected + pos;
         //next_pos = dir * clen + pos;
 
@@ -281,15 +304,21 @@ struct character : renderable
 
     vec2f adjust_next_pos_for_physics(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
     {
+        vec2f accum;
+
+        int num = 0;
+
         for(physics_barrier* bar : physics_barrier_manage.phys)
         {
-            bool did_phys = false;
+            //bool did_phys = false;
 
             if(bar->crosses(pos, next_pos))
             {
-                next_pos = stick_physics(next_pos, bar);
+                next_pos = stick_physics(next_pos, bar, accum);
 
-                did_phys = true;
+                //num++;
+
+                //did_phys = true;
             }
 
             float line_jump_dist = 2;
@@ -303,8 +332,46 @@ struct character : renderable
                     next_pos = stick_physics(next_pos, bar);
                 }*/
 
+                num++;
+
                 can_jump = true;
                 jump_dir += bar->get_normal_towards(next_pos);
+            }
+        }
+
+        if(num == 1)
+        {
+            pos += accum.norm();
+            next_pos += accum.norm();
+        }
+
+        return next_pos;
+    }
+
+    /*vec2f try_reflect_physics(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
+    {
+        for(physics_barrier* bar : physics_barrier_manage.phys)
+        {
+            if(bar->crosses(pos, next_pos))
+            {
+                next_pos = reflect_physics(next_pos, bar);
+            }
+        }
+
+        return next_pos;
+    }*/
+
+    vec2f force_enforce_no_clipping(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
+    {
+        for(physics_barrier* bar : physics_barrier_manage.phys)
+        {
+            if(bar->crosses(pos, next_pos))
+            {
+                //next_pos = last_resort_physics(next_pos, bar);
+
+                //printf("hello\n");
+
+                next_pos = pos;
             }
         }
 
@@ -354,6 +421,9 @@ struct character : renderable
 
         next_pos = adjust_next_pos_for_physics(next_pos, physics_barrier_manage);
 
+        //next_pos = force_enforce_no_clipping(next_pos, physics_barrier_manage);
+        next_pos = force_enforce_no_clipping(next_pos, physics_barrier_manage);
+
         //pos = pos + velocity * dt;
 
         last_dt = dt;
@@ -395,7 +465,7 @@ struct character : renderable
         jump_cooldown_cur = 0;
         jump_stick_cooldown_cur = 0.f;
 
-        std::cout << jump_dir << std::endl;
+        //std::cout << jump_dir << std::endl;
     }
 };
 
