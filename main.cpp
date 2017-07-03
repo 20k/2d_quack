@@ -204,9 +204,12 @@ struct character : renderable
     vec2f last_pos;
     vec2f pos;
     //vec2f velocity;
+    vec2f player_acceleration;
     vec2f acceleration;
     vec2f impulse;
 
+
+    bool stuck_to_surface = false;
     //bool jumped = false;
     float jump_stick_cooldown_cur = 0.f;
     float jump_stick_cooldown_time = 0.05f;
@@ -334,11 +337,14 @@ struct character : renderable
 
                 num++;
 
+                stuck_to_surface = true;
                 can_jump = true;
                 jump_dir += bar->get_normal_towards(next_pos);
             }
         }
 
+        ///if we encounter physics problems in the future at the intersection between two lines in the good case
+        ///special case this for the bad case (acute angle), could check if any crossing happens
         if(num == 1)
         {
             pos += accum.norm();
@@ -380,6 +386,7 @@ struct character : renderable
 
     void tick(float dt, physics_barrier_manager& physics_barrier_manage)
     {
+        stuck_to_surface = false;
         can_jump = false;
         jump_dir = {0,0};
 
@@ -398,6 +405,8 @@ struct character : renderable
 
         vec2f friction = {1.f, 1.f};
 
+        //vec2f next_pos_player_only = pos + (pos - last_pos) * dt_f * friction + player_acceleration * dt * dt;
+
         vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * dt * dt + impulse;
 
         float max_speed = 0.85f;
@@ -409,15 +418,35 @@ struct character : renderable
 
         //next_pos = adjust_next_pos_for_physics(next_pos, physics_barrier_manage);
 
-        if(fabs((next_pos - pos).x()) > max_speed)
+        /*if(fabs((next_pos_player_only - pos).x()) > max_speed)
         {
-            float diff = (next_pos - pos).x();
+            float diff = (next_pos_player_only - pos).x();
 
             if(diff < 0)
-                next_pos.x() = -max_speed + pos.x();
+                next_pos_player_only.x() = -max_speed + pos.x();
             else
-                next_pos.x() = max_speed + pos.x();
+                next_pos_player_only.x() = max_speed + pos.x();
+        }*/
+
+        /*if(fabs((next_pos - pos).x() + player_acceleration.x() * dt * dt) < max_speed)
+        {
+            next_pos += player_acceleration * dt * dt;
+        }*/
+
+        vec2f my_speed = {(next_pos - pos).x(), 0.f};
+        vec2f my_acc = {player_acceleration.x() * dt * dt, 0.f};
+
+        if(stuck_to_surface)
+        {
+            my_speed.y() = (next_pos - pos).y();
         }
+
+        if(fabs((my_speed + my_acc).length()) < max_speed || (fabs((my_speed + my_acc).length()) < fabs(my_speed.length())))
+        {
+            next_pos += player_acceleration * dt * dt;
+        }
+
+        //vec2f next_pos = next_pos_player_only + acceleration * dt * dt + impulse;
 
         next_pos = adjust_next_pos_for_physics(next_pos, physics_barrier_manage);
 
@@ -435,6 +464,7 @@ struct character : renderable
 
         //std::cout << (pos - last_pos).length() << std::endl;
 
+        player_acceleration = {0,0};
         acceleration = {0,0};
         impulse = {0,0};
 
@@ -444,12 +474,12 @@ struct character : renderable
 
     void do_gravity(vec2f dir)
     {
-        acceleration += dir * 800.f;
+        acceleration += dir * 1600.f;
     }
 
     void set_movement(vec2f dir)
     {
-        acceleration += dir * 8.f;
+        player_acceleration += dir * 8.f;
     }
 
     void jump()
@@ -460,7 +490,7 @@ struct character : renderable
         if(jump_cooldown_cur < jump_cooldown_time)
             return;
 
-        impulse += jump_dir.norm() * 0.85f;
+        impulse += jump_dir.norm() * 0.95f;
         //acceleration += jump_dir.norm() * 200000.f;
         jump_cooldown_cur = 0;
         jump_stick_cooldown_cur = 0.f;
@@ -510,6 +540,8 @@ int main()
 
     sf::sleep(sf::milliseconds(1));
 
+    uint32_t frame = 0;
+
     while(win.isOpen())
     {
         auto sfml_mpos = mouse.getPosition(win);
@@ -552,7 +584,8 @@ int main()
 
         win.clear();
 
-        character_manage.tick(dt_s, physics_barrier_manage);
+        if(frame > 1)
+            character_manage.tick(dt_s, physics_barrier_manage);
 
         if(ONCE_MACRO(sf::Keyboard::Space) && win.hasFocus())
         {
@@ -564,6 +597,8 @@ int main()
         win.display();
 
         sf::sleep(sf::milliseconds(1));
+
+        frame++;
     }
 
     return 0;
