@@ -6,6 +6,8 @@
 #include <imgui/imgui-SFML.h>
 #include "util.hpp"
 
+bool suppress_mouse = false;
+
 struct renderable
 {
     sf::Image img;
@@ -203,6 +205,7 @@ struct physics_barrier_manager
 
 struct character : renderable
 {
+    bool spawned = false;
     vec2f last_pos;
     vec2f pos;
     //vec2f velocity;
@@ -226,6 +229,9 @@ struct character : renderable
 
     void render(sf::RenderWindow& win) override
     {
+        //if(!spawned)
+        //    return;
+
         renderable::render(win, pos);
     }
 
@@ -519,13 +525,109 @@ struct character_manager
     }
 };
 
+struct game_world_manager : renderable
+{
+    std::vector<vec2f> spawn_positions;
+
+    bool should_render = false;
+
+    void add(vec2f pos)
+    {
+        spawn_positions.push_back(pos);
+    }
+
+    void render(sf::RenderWindow& win) override
+    {
+        if(!should_render)
+            return;
+
+        float rad = 8;
+
+        sf::CircleShape circle;
+        circle.setRadius(rad);
+        circle.setOrigin(rad, rad);
+        circle.setFillColor(sf::Color(255, 128, 255));
+
+        for(vec2f& pos : spawn_positions)
+        {
+            circle.setPosition({pos.x(), pos.y()});
+            win.draw(circle);
+        }
+    }
+
+    void enable_rendering()
+    {
+        should_render = true;
+    }
+
+    void disable_rendering()
+    {
+        should_render = false;
+    }
+};
+
 struct debug_controls
 {
     int state = 0;
 
-    void editor_controls()
-    {
+    int tools_state = 0;
 
+    void line_draw_controls(physics_barrier_manager& physics_barrier_manage, vec2f mpos, renderable_manager& renderable_manage)
+    {
+        if(suppress_mouse)
+            return;
+
+        if(ONCE_MACRO(sf::Mouse::Left))
+        {
+            physics_barrier_manage.add_point(mpos, renderable_manage);
+        }
+    }
+
+    void spawn_controls(renderable_manager& renderable_manage, vec2f mpos, game_world_manager& game_world_manage)
+    {
+        if(suppress_mouse)
+            return;
+
+        if(ONCE_MACRO(sf::Mouse::Left))
+        {
+            game_world_manage.add(mpos);
+        }
+    }
+
+    void editor_controls(physics_barrier_manager& physics_barrier_manage, vec2f mpos, renderable_manager& renderable_manage, game_world_manager& game_world_manage)
+    {
+        game_world_manage.enable_rendering();
+
+        ImGui::Begin("Tools");
+
+        std::vector<std::string> tools{"Line Draw", "Spawn Point"};
+
+        for(int i=0; i<tools.size(); i++)
+        {
+            std::string str = tools[i];
+
+            if(tools_state == i)
+            {
+                str += " <--";
+            }
+
+            if(ImGui::Button(str.c_str()))
+            {
+                tools_state = i;
+            }
+        }
+
+        if(tools_state == 0)
+        {
+            line_draw_controls(physics_barrier_manage, mpos, renderable_manage);
+        }
+
+        if(tools_state == 1)
+        {
+            spawn_controls(renderable_manage, mpos, game_world_manage);
+        }
+
+        ImGui::End();
     }
 
     void player_controls()
@@ -533,8 +635,10 @@ struct debug_controls
 
     }
 
-    void tick()
+    void tick(physics_barrier_manager& physics_barrier_manage, vec2f mpos, renderable_manager& renderable_manage, game_world_manager& game_world_manage)
     {
+        game_world_manage.disable_rendering();
+
         ImGui::Begin("Control menus");
 
         std::vector<std::string> modes{"Editor", "Player"};
@@ -556,7 +660,7 @@ struct debug_controls
 
         if(state == 0)
         {
-            editor_controls();
+            editor_controls(physics_barrier_manage, mpos, renderable_manage, game_world_manage);
         }
 
         if(state == 1)
@@ -570,8 +674,10 @@ struct debug_controls
 
 int main()
 {
+    sf::ContextSettings context(0, 0, 8);
+
     sf::RenderWindow win;
-    win.create(sf::VideoMode(1500, 1000), "fak u mark");
+    win.create(sf::VideoMode(1500, 1000), "fak u mark", sf::Style::Default, context);
 
     ImGui::SFML::Init(win);
     ImGui::NewFrame();
@@ -585,6 +691,9 @@ int main()
     character_manage.add(test);
 
     physics_barrier_manager physics_barrier_manage;
+    game_world_manager game_world_manage;
+
+    renderable_manage.add(&game_world_manage);
 
     debug_controls controls;
 
@@ -596,8 +705,6 @@ int main()
     sf::sleep(sf::milliseconds(1));
 
     uint32_t frame = 0;
-
-    bool suppress_mouse = false;
 
     while(win.isOpen())
     {
@@ -628,6 +735,8 @@ int main()
 
         const ImGuiIO& io = ImGui::GetIO();
 
+        suppress_mouse = false;
+
         if(io.WantCaptureMouse)
             suppress_mouse = true;
 
@@ -644,14 +753,15 @@ int main()
             move_dir.y() -= (int)key.isKeyPressed(sf::Keyboard::W);
         }
 
-        if(ONCE_MACRO(sf::Mouse::Left) && win.hasFocus())
+        /*if(ONCE_MACRO(sf::Mouse::Left) && win.hasFocus() && controls.state == 0 && !suppress_mouse)
         {
             physics_barrier_manage.add_point(mpos, renderable_manage);
-        }
+        }*/
 
         //test->velocity += move_dir * mult;
 
-        controls.tick();
+        if(win.hasFocus())
+            controls.tick(physics_barrier_manage, mpos, renderable_manage, game_world_manage);
 
         if(controls.state == 1)
         {
