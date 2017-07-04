@@ -3,7 +3,7 @@
 
 //#include "state.hpp"
 
-struct character : renderable, damageable
+struct character : renderable, damageable, collideable
 {
     bool spawned = false;
     float spawn_timer = 0.f;
@@ -307,6 +307,9 @@ struct character : renderable, damageable
         jump_stick_cooldown_cur += dt;
 
         tick_spawn(dt, st.game_world_manage);
+
+        collision_pos = pos;
+        collision_dim = {tex.getSize().x, tex.getSize().y};
     }
 
     void do_gravity(vec2f dir)
@@ -368,7 +371,7 @@ struct character : renderable, damageable
     }
 };*/
 
-struct character_manager : renderable_manager_base<character>
+struct character_manager : virtual renderable_manager_base<character>, virtual collideable_manager_base<character>
 {
     void tick(float dt, state& st)
     {

@@ -35,24 +35,60 @@ struct renderable
     virtual void render(sf::RenderWindow& win) = 0;
 };
 
-struct projectile : renderable
+struct collideable
+{
+    vec2f collision_pos;
+    vec2f collision_dim = {2, 2};
+
+    virtual void on_collide(collideable* other) {}
+
+    bool intersects(collideable* other)
+    {
+        //if (RectA.Left < RectB.Right && RectA.Right > RectB.Left &&
+        //RectA.Top > RectB.Bottom && RectA.Bottom < RectB.Top )
+
+        vec2f mhdim = collision_dim/2.f;
+        vec2f thdim = other->collision_dim/2.f;
+
+        vec2f Atl = collision_pos - mhdim;
+        vec2f Abr = collision_pos + mhdim;
+
+        vec2f Btl = other->collision_pos - thdim;
+        vec2f Bbr = other->collision_pos + thdim;
+
+        if(Atl.x() < Bbr.x() && Abr.x() > Btl.x() && Atl.y() > Bbr.y() && Abr.y() < Btl.y())
+        {
+            return true;
+        }
+
+        return false;
+    }
+};
+
+struct projectile : renderable, collideable
 {
     int type;
     vec2f pos;
     vec2f dir;
     float speed = 1.f;
+    float rad = 1.f;
+
+    virtual void on_collide(collideable* other) {}
 
     void tick(float dt_s, state& st)
     {
         pos = pos + dir;
+
+        collision_pos = pos;
+        collision_dim = {rad*2, rad*2};
     }
 
     void render(sf::RenderWindow& win) override
     {
         sf::CircleShape shape;
-        shape.setRadius(2.f);
+        shape.setRadius(rad);
 
-        shape.setOrigin(2, 2);
+        shape.setOrigin(rad, rad);
 
         shape.setPosition(pos.x(), pos.y());
 
@@ -60,26 +96,7 @@ struct projectile : renderable
     }
 };
 
-
 #include "managers.hpp"
-
-/*struct renderable_manager
-{
-    std::vector<renderable*> renderables;
-
-    void add(renderable* r)
-    {
-        renderables.push_back(r);
-    }
-
-    void draw(sf::RenderWindow& win)
-    {
-        for(renderable* r : renderables)
-        {
-            r->render(win);
-        }
-    }
-};*/
 
 struct tickable
 {
@@ -264,8 +281,6 @@ struct physics_barrier : renderable
 
 struct physics_barrier_manager : renderable_manager_base<physics_barrier>
 {
-    //std::vector<physics_barrier*> phys;
-
     bool adding = false;
     vec2f adding_point;
 
@@ -284,14 +299,9 @@ struct physics_barrier_manager : renderable_manager_base<physics_barrier>
         {
             vec2f p2 = pos;
 
-            //physics_barrier* bar = new physics_barrier;
-
             physics_barrier* bar = make_new<physics_barrier>();
             bar->p1 = adding_point;
             bar->p2 = p2;
-
-            //objs.push_back(bar);
-            //st.renderable_manage.add(bar);
 
             adding = false;
 
@@ -582,9 +592,11 @@ int main()
     physics_barrier_manager physics_barrier_manage;
     game_world_manager game_world_manage;
 
+    projectile_manager projectile_manage;
+
     debug_controls controls;
 
-    state st(character_manage, physics_barrier_manage, game_world_manage, renderable_manage);
+    state st(character_manage, physics_barrier_manage, game_world_manage, renderable_manage, projectile_manage);
 
     sf::Clock clk;
 
@@ -690,6 +702,8 @@ int main()
         physics_barrier_manage.render(win);
         game_world_manage.render(win);
         character_manage.render(win);
+
+        projectile_manage.check_collisions(character_manage);
 
         ImGui::Render();
         win.display();

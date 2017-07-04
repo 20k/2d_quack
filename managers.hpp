@@ -79,7 +79,31 @@ struct renderable_manager : virtual renderable_manager_base<renderable>
 
 };
 
-struct projectile_manager : virtual renderable_manager_base<projectile>
+template<typename T>
+struct collideable_manager_base : virtual object_manager<T>
+{
+    template<typename U>
+    void check_collisions(collideable_manager_base<U>& other)
+    {
+        for(int i=0; i<object_manager<T>::objs.size(); i++)
+        {
+            T* my_t = object_manager<T>::objs[i];
+
+            for(int j=0; j<other.objs.size(); j++)
+            {
+                U* their_t = other.objs[j];
+
+                if(my_t->intersects(their_t))
+                {
+                    my_t->on_collide(their_t);
+                    their_t->on_collide(my_t);
+                }
+            }
+        }
+    }
+};
+
+struct projectile_manager : virtual renderable_manager_base<projectile>, virtual collideable_manager_base<projectile>
 {
     void tick(float dt_s, state& st)
     {
