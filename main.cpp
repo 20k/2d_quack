@@ -35,7 +35,35 @@ struct renderable
     virtual void render(sf::RenderWindow& win) = 0;
 };
 
-struct renderable_manager
+struct projectile : renderable
+{
+    int type;
+    vec2f pos;
+    vec2f dir;
+    float speed = 1.f;
+
+    void tick(float dt_s, state& st)
+    {
+        pos = pos + dir;
+    }
+
+    void render(sf::RenderWindow& win) override
+    {
+        sf::CircleShape shape;
+        shape.setRadius(2.f);
+
+        shape.setOrigin(2, 2);
+
+        shape.setPosition(pos.x(), pos.y());
+
+        win.draw(shape);
+    }
+};
+
+
+#include "managers.hpp"
+
+/*struct renderable_manager
 {
     std::vector<renderable*> renderables;
 
@@ -49,6 +77,26 @@ struct renderable_manager
         for(renderable* r : renderables)
         {
             r->render(win);
+        }
+    }
+};*/
+
+struct tickable
+{
+    static std::vector<tickable*> tickables;
+
+    void add_tickable(tickable* t)
+    {
+        tickables.push_back(t);
+    }
+
+    virtual void tick(float dt_s, state& st);
+
+    static void tick_all(float dt_s, state& st)
+    {
+        for(tickable* t : tickables)
+        {
+            t->tick(dt_s, st);
         }
     }
 };
@@ -214,9 +262,9 @@ struct physics_barrier : renderable
     }
 };
 
-struct physics_barrier_manager
+struct physics_barrier_manager : renderable_manager_base<physics_barrier>
 {
-    std::vector<physics_barrier*> phys;
+    //std::vector<physics_barrier*> phys;
 
     bool adding = false;
     vec2f adding_point;
@@ -236,12 +284,14 @@ struct physics_barrier_manager
         {
             vec2f p2 = pos;
 
-            physics_barrier* bar = new physics_barrier;
+            //physics_barrier* bar = new physics_barrier;
+
+            physics_barrier* bar = make_new<physics_barrier>();
             bar->p1 = adding_point;
             bar->p2 = p2;
 
-            phys.push_back(bar);
-            st.renderable_manage.add(bar);
+            //objs.push_back(bar);
+            //st.renderable_manage.add(bar);
 
             adding = false;
 
@@ -253,7 +303,7 @@ struct physics_barrier_manager
     {
         byte_vector vec;
 
-        for(physics_barrier* bar : phys)
+        for(physics_barrier* bar : objs)
         {
             vec.push_vector(bar->serialise());
         }
@@ -263,7 +313,7 @@ struct physics_barrier_manager
 
     void deserialise(byte_fetch& fetch, int num_bytes)
     {
-        phys.clear();
+        objs.clear();
 
         for(int i=0; i<num_bytes / (sizeof(vec2f) * 2); i++)
         {
@@ -271,13 +321,12 @@ struct physics_barrier_manager
 
             bar->deserialise(fetch);
 
-            phys.push_back(bar);
+            objs.push_back(bar);
         }
     }
 };
 
-
-struct game_world_manager : renderable
+struct game_world_manager
 {
     int cur_spawn = 0;
     std::vector<vec2f> spawn_positions;
@@ -289,7 +338,7 @@ struct game_world_manager : renderable
         spawn_positions.push_back(pos);
     }
 
-    void render(sf::RenderWindow& win) override
+    void render(sf::RenderWindow& win)
     {
         if(!should_render)
             return;
@@ -354,24 +403,6 @@ struct game_world_manager : renderable
 };
 
 #include "character.hpp"
-
-struct character_manager
-{
-    std::vector<character*> characters;
-
-    void add(character* c)
-    {
-        characters.push_back(c);
-    }
-
-    void tick(float dt_s, state& st)
-    {
-        for(character* c : characters)
-        {
-            c->tick(dt_s, st);
-        }
-    }
-};
 
 struct debug_controls
 {
@@ -527,17 +558,10 @@ void load(const std::string& file, physics_barrier_manager& physics_barrier_mana
     int32_t v1_s = fetch.get<int32_t>();
     int32_t v2_s = fetch.get<int32_t>();
 
-    renderable_manage.renderables.clear();
+    renderable_manage.erase_all();
 
     physics_barrier_manage.deserialise(fetch, v1_s);
     game_world_manage.deserialise(fetch, v2_s);
-
-    for(auto& i : physics_barrier_manage.phys)
-    {
-        renderable_manage.add(i);
-    }
-
-    renderable_manage.add(&game_world_manage);
 }
 
 int main()
@@ -553,15 +577,10 @@ int main()
     renderable_manager renderable_manage;
     character_manager character_manage;
 
-    character* test = new character;
-
-    renderable_manage.add(test);
-    character_manage.add(test);
+    character* test = character_manage.make_new<character>();
 
     physics_barrier_manager physics_barrier_manage;
     game_world_manager game_world_manage;
-
-    renderable_manage.add(&game_world_manage);
 
     debug_controls controls;
 
@@ -666,7 +685,11 @@ int main()
         }
 
         win.clear();
-        renderable_manage.draw(win);
+
+        renderable_manage.render(win);
+        physics_barrier_manage.render(win);
+        game_world_manage.render(win);
+        character_manage.render(win);
 
         ImGui::Render();
         win.display();

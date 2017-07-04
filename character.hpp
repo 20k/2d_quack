@@ -122,7 +122,7 @@ struct character : renderable, damageable
 
         int num = 0;
 
-        for(physics_barrier* bar : physics_barrier_manage.phys)
+        for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             //bool did_phys = false;
 
@@ -180,7 +180,7 @@ struct character : renderable, damageable
 
     vec2f force_enforce_no_clipping(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
     {
-        for(physics_barrier* bar : physics_barrier_manage.phys)
+        for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             if(bar->crosses(pos, next_pos))
             {
@@ -347,6 +347,35 @@ struct character : renderable, damageable
     void deserialise(byte_fetch& fetch)
     {
         pos = fetch.get<vec2f>();
+    }
+};
+
+/*struct character_manager
+{
+    std::vector<character*> characters;
+
+    void add(character* c)
+    {
+        characters.push_back(c);
+    }
+
+    void tick(float dt_s, state& st)
+    {
+        for(character* c : characters)
+        {
+            c->tick(dt_s, st);
+        }
+    }
+};*/
+
+struct character_manager : renderable_manager_base<character>
+{
+    void tick(float dt, state& st)
+    {
+        for(character* c : objs)
+        {
+            c->tick(dt, st);
+        }
     }
 };
 
