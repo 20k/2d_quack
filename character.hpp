@@ -1,6 +1,7 @@
 #ifndef CHARACTER_HPP_INCLUDED
 #define CHARACTER_HPP_INCLUDED
 
+//#include "state.hpp"
 
 struct character : renderable, damageable
 {
@@ -216,7 +217,7 @@ struct character : renderable, damageable
         }
     }
 
-    void tick(float dt, physics_barrier_manager& physics_barrier_manage, game_world_manager& game_world_manage)
+    void tick(float dt, state& st)
     {
         stuck_to_surface = false;
         can_jump = false;
@@ -282,10 +283,10 @@ struct character : renderable, damageable
 
         //vec2f next_pos = next_pos_player_only + acceleration * dt * dt + impulse;
 
-        next_pos = adjust_next_pos_for_physics(next_pos, physics_barrier_manage);
+        next_pos = adjust_next_pos_for_physics(next_pos, st.physics_barrier_manage);
 
         //next_pos = force_enforce_no_clipping(next_pos, physics_barrier_manage);
-        next_pos = force_enforce_no_clipping(next_pos, physics_barrier_manage);
+        next_pos = force_enforce_no_clipping(next_pos, st.physics_barrier_manage);
 
         //pos = pos + velocity * dt;
 
@@ -305,7 +306,7 @@ struct character : renderable, damageable
         jump_cooldown_cur += dt;
         jump_stick_cooldown_cur += dt;
 
-        tick_spawn(dt, game_world_manage);
+        tick_spawn(dt, st.game_world_manage);
     }
 
     void do_gravity(vec2f dir)
