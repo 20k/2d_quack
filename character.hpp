@@ -30,7 +30,7 @@ struct character : virtual renderable, virtual damageable, virtual collideable
     float jump_cooldown_cur = 0.f;
     float jump_cooldown_time = 0.15f;
 
-    character(int team) : collideable(team)
+    character(int team) : collideable(team, collide::RAD)
     {
 
     }

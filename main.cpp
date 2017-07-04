@@ -40,6 +40,18 @@ struct renderable
     }
 };
 
+namespace collide
+{
+    enum type
+    {
+        NONE,
+        RAD,
+        PHYS_LINE,
+    };
+}
+
+using collide_t = collide::type;
+
 struct collideable
 {
     int team = 0;
@@ -47,9 +59,12 @@ struct collideable
     vec2f collision_pos;
     vec2f collision_dim = {2, 2};
 
-    collideable(int t)
+    collide_t type;
+
+    collideable(int t, collide_t _type)
     {
         team = t;
+        type = _type;
     }
 
     virtual void on_collide(collideable* other) {}
@@ -80,12 +95,19 @@ struct collideable
 
         return false;*/
 
-        float rad = collision_dim.length();
+        if(type == collide::RAD)
+        {
+            float rad = collision_dim.length();
 
-        vec2f diff = collision_pos - other->collision_pos;
+            vec2f diff = collision_pos - other->collision_pos;
 
-        if(diff.length() < collision_dim.length()/2.f || diff.length() < other->collision_dim.length()/2.f)
-            return true;
+            if(diff.length() < collision_dim.length()/2.f || diff.length() < other->collision_dim.length()/2.f)
+                return true;
+
+            return false;
+        }
+
+        printf("unsupported collider type %i\n", type);
 
         return false;
     }
@@ -104,7 +126,7 @@ struct projectile : renderable, collideable
     float speed = 1.f;
     float rad = 2.f;
 
-    projectile(int team) : collideable(team)
+    projectile(int team) : collideable(team, collide::RAD)
     {
 
     }
