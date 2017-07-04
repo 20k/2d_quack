@@ -93,7 +93,7 @@ struct collideable_manager_base : virtual object_manager<T>
             {
                 U* their_t = other.objs[j];
 
-                if(my_t->intersects(their_t))
+                if(my_t->team != their_t->team && my_t->intersects(their_t))
                 {
                     my_t->on_collide(their_t);
                     their_t->on_collide(my_t);

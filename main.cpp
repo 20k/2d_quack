@@ -33,12 +33,24 @@ struct renderable
     }
 
     virtual void render(sf::RenderWindow& win) = 0;
+
+    virtual ~renderable()
+    {
+
+    }
 };
 
 struct collideable
 {
+    int team = 0;
+
     vec2f collision_pos;
     vec2f collision_dim = {2, 2};
+
+    collideable(int t)
+    {
+        team = t;
+    }
 
     virtual void on_collide(collideable* other) {}
 
@@ -47,7 +59,7 @@ struct collideable
         //if (RectA.Left < RectB.Right && RectA.Right > RectB.Left &&
         //RectA.Top > RectB.Bottom && RectA.Bottom < RectB.Top )
 
-        vec2f mhdim = collision_dim/2.f;
+        /*vec2f mhdim = collision_dim/2.f;
         vec2f thdim = other->collision_dim/2.f;
 
         vec2f Atl = collision_pos - mhdim;
@@ -56,28 +68,52 @@ struct collideable
         vec2f Btl = other->collision_pos - thdim;
         vec2f Bbr = other->collision_pos + thdim;
 
+        std::cout << collision_pos << " " << other->collision_pos << std::endl;
+        std::cout << Atl << " " << Abr << " " << Btl << " " << Bbr << std::endl;
+
         if(Atl.x() < Bbr.x() && Abr.x() > Btl.x() && Atl.y() > Bbr.y() && Abr.y() < Btl.y())
         {
+            std::cout << "hello\n";
+
             return true;
         }
 
+        return false;*/
+
+        float rad = collision_dim.length();
+
+        vec2f diff = collision_pos - other->collision_pos;
+
+        if(diff.length() < collision_dim.length()/2.f || diff.length() < other->collision_dim.length()/2.f)
+            return true;
+
         return false;
+    }
+
+    virtual ~collideable()
+    {
+
     }
 };
 
 struct projectile : renderable, collideable
 {
-    int type;
+    int type = 0;
     vec2f pos;
     vec2f dir;
     float speed = 1.f;
-    float rad = 1.f;
+    float rad = 2.f;
 
-    virtual void on_collide(collideable* other) {}
+    projectile(int team) : collideable(team)
+    {
+
+    }
+
+    virtual void on_collide(collideable* other) override {printf("projectile collide\n");}
 
     void tick(float dt_s, state& st)
     {
-        pos = pos + dir;
+        pos = pos + dir * dt_s;
 
         collision_pos = pos;
         collision_dim = {rad*2, rad*2};
@@ -94,11 +130,16 @@ struct projectile : renderable, collideable
 
         win.draw(shape);
     }
+
+    virtual ~projectile()
+    {
+
+    }
 };
 
 #include "managers.hpp"
 
-struct tickable
+/*struct tickable
 {
     static std::vector<tickable*> tickables;
 
@@ -116,7 +157,7 @@ struct tickable
             t->tick(dt_s, st);
         }
     }
-};
+};*/
 
 struct damageable
 {
@@ -143,6 +184,11 @@ struct damageable
     bool dead()
     {
         return hp <= 0.f;
+    }
+
+    virtual ~damageable()
+    {
+
     }
 };
 
@@ -478,12 +524,21 @@ struct debug_controls
         ImGui::End();
     }
 
-    void player_controls()
+    void player_controls(vec2f mpos, state& st, character* player)
     {
+        if(!suppress_mouse && ONCE_MACRO(sf::Mouse::Left))
+        {
+            vec2f ppos = player->pos;
 
+            vec2f to_mouse = mpos - ppos;
+
+            projectile* p = st.projectile_manage.make_new<projectile>(player->team);
+            p->pos = ppos;
+            p->dir = to_mouse.norm() * 1000.f;
+        }
     }
 
-    void tick(vec2f mpos, state& st)
+    void tick(vec2f mpos, state& st, character* player)
     {
         st.game_world_manage.disable_rendering();
 
@@ -513,7 +568,7 @@ struct debug_controls
 
         if(controls_state == 1)
         {
-            player_controls();
+            player_controls(mpos, st, player);
         }
 
         ImGui::End();
@@ -587,7 +642,7 @@ int main()
     renderable_manager renderable_manage;
     character_manager character_manage;
 
-    character* test = character_manage.make_new<character>();
+    character* test = character_manage.make_new<character>(0);
 
     physics_barrier_manager physics_barrier_manage;
     game_world_manager game_world_manage;
@@ -662,7 +717,7 @@ int main()
         //test->velocity += move_dir * mult;
 
         if(win.hasFocus())
-            controls.tick(mpos, st);
+            controls.tick(mpos, st, test);
 
         if(controls.controls_state == 0)
         {
@@ -690,6 +745,8 @@ int main()
             if(frame > 1)
                 character_manage.tick(dt_s, st);
 
+            projectile_manage.tick(dt_s, st);
+
             if(ONCE_MACRO(sf::Keyboard::Space) && win.hasFocus())
             {
                 test->jump();
@@ -701,6 +758,7 @@ int main()
         renderable_manage.render(win);
         physics_barrier_manage.render(win);
         game_world_manage.render(win);
+        projectile_manage.render(win);
         character_manage.render(win);
 
         projectile_manage.check_collisions(character_manage);

@@ -3,7 +3,7 @@
 
 //#include "state.hpp"
 
-struct character : renderable, damageable, collideable
+struct character : virtual renderable, virtual damageable, virtual collideable
 {
     bool spawned = false;
     float spawn_timer = 0.f;
@@ -29,6 +29,11 @@ struct character : renderable, damageable, collideable
 
     float jump_cooldown_cur = 0.f;
     float jump_cooldown_time = 0.15f;
+
+    character(int team) : collideable(team)
+    {
+
+    }
 
     void render(sf::RenderWindow& win) override
     {
