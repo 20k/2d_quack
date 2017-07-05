@@ -3,6 +3,8 @@
 
 //#include "state.hpp"
 
+struct projectile;
+
 struct character : virtual renderable, virtual damageable, virtual collideable, virtual base_class
 {
     bool spawned = false;
@@ -33,6 +35,14 @@ struct character : virtual renderable, virtual damageable, virtual collideable, 
     character(int team) : collideable(team, collide::RAD)
     {
 
+    }
+
+    void on_collide(collideable* other)
+    {
+        if(dynamic_cast<projectile*>(other) != nullptr)
+        {
+            damage(0.6f);
+        }
     }
 
     void render(sf::RenderWindow& win) override
@@ -205,14 +215,20 @@ struct character : virtual renderable, virtual damageable, virtual collideable, 
         vec2f spawn_pos = game_world_manage.get_next_spawn();
 
         pos = spawn_pos;
+        last_pos = pos;
 
         reset_hp();
+
+        should_render = true;
+        spawn_timer = 0;
     }
 
     void tick_spawn(float dt, game_world_manager& game_world_manage)
     {
         if(dead())
         {
+            should_render = false;
+
             spawn_timer += dt;
 
             if(spawn_timer >= spawn_timer_max)

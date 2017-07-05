@@ -22,6 +22,8 @@ struct renderable
     sf::Image img;
     sf::Texture tex;
 
+    bool should_render = true;
+
     renderable()
     {
         img.create(20, 20, sf::Color(255, 128, 128));
@@ -30,6 +32,9 @@ struct renderable
 
     virtual void render(sf::RenderWindow& win, vec2f pos)
     {
+        if(!should_render)
+            return;
+
         sf::Sprite spr(tex);
         spr.setOrigin(tex.getSize().x/2, tex.getSize().y/2);
         spr.setPosition({pos.x(), pos.y()});
