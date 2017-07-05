@@ -252,13 +252,6 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         if(other->type != collide::RAD)
             return false;
 
-        /*if(crosses(other->collision_pos, other->last_collision_pos))
-        {
-            other->should_cleanup = true;
-        }*/
-
-        vec2f old_pos = other->last_collision_pos;
-
         if(crosses(other->collision_pos, other->last_collision_pos))
         {
             return true;
