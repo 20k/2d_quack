@@ -555,7 +555,7 @@ struct debug_controls
     {
         st.game_world_manage.enable_rendering();
 
-        ImGui::Begin("Tools");
+        ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         std::vector<std::string> tools{"Line Draw", "Spawn Point"};
 
@@ -582,6 +582,15 @@ struct debug_controls
         if(tools_state == 1)
         {
             spawn_controls(mpos, st);
+        }
+
+        if(ImGui::Button("Spawn Enemy"))
+        {
+            character* c = st.character_manage.make_new<character>(1);
+
+            c->pos = st.game_world_manage.get_next_spawn();
+            c->last_pos = c->pos;
+            c->init_collision_pos(c->pos);
         }
 
         ImGui::End();
