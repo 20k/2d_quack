@@ -21,13 +21,16 @@ struct renderable
 {
     sf::Image img;
     sf::Texture tex;
+    vec3f col = {1, 1, 1};
 
     bool should_render = true;
 
     renderable()
     {
-        img.create(20, 20, sf::Color(255, 128, 128));
+        img.create(20, 20, sf::Color(255, 255, 255));
         tex.loadFromImage(img);
+
+        generate_colour();
     }
 
     virtual void render(sf::RenderWindow& win, vec2f pos)
@@ -38,8 +41,16 @@ struct renderable
         sf::Sprite spr(tex);
         spr.setOrigin(tex.getSize().x/2, tex.getSize().y/2);
         spr.setPosition({pos.x(), pos.y()});
+        spr.setColor(sf::Color(255 * col.x(), 255 * col.y(),255 * col.z()));
 
         win.draw(spr);
+    }
+
+    void generate_colour()
+    {
+        float ffrac = 0.7f;
+
+        col = randf<3, float>() * ffrac + (1.f - ffrac);
     }
 
     virtual void render(sf::RenderWindow& win) = 0;
