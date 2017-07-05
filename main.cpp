@@ -259,12 +259,7 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
 
         vec2f old_pos = other->last_collision_pos;
 
-        /*if(other->fully_init)
-        {
-            old_pos = other->last_collision_pos;
-        }*/
-
-        if(crosses(other->collision_pos, old_pos))
+        if(crosses(other->collision_pos, other->last_collision_pos))
         {
             return true;
         }
