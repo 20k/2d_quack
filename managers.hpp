@@ -60,6 +60,20 @@ struct object_manager
 
         objs.clear();
     }
+
+    void cleanup()
+    {
+        for(int i=0; i<objs.size(); i++)
+        {
+            if(objs[i]->should_cleanup)
+            {
+                objs.erase(objs.begin() + i);
+                i--;
+
+                continue;
+            }
+        }
+    }
 };
 
 template<typename T>

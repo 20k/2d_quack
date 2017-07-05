@@ -3,7 +3,7 @@
 
 //#include "state.hpp"
 
-struct character : virtual renderable, virtual damageable, virtual collideable
+struct character : virtual renderable, virtual damageable, virtual collideable, virtual base_class
 {
     bool spawned = false;
     float spawn_timer = 0.f;
@@ -313,7 +313,9 @@ struct character : virtual renderable, virtual damageable, virtual collideable
 
         tick_spawn(dt, st.game_world_manage);
 
-        collision_pos = pos;
+        //last_collision_pos = collision_pos;
+        //collision_pos = pos;
+        set_collision_pos(pos);
         collision_dim = {tex.getSize().x, tex.getSize().y};
     }
 

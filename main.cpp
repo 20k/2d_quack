@@ -12,6 +12,11 @@
 
 bool suppress_mouse = false;
 
+struct base_class
+{
+    bool should_cleanup = false;
+};
+
 struct renderable
 {
     sf::Image img;
@@ -52,10 +57,13 @@ namespace collide
 
 using collide_t = collide::type;
 
-struct collideable
+struct collideable : virtual base_class
 {
     int team = 0;
 
+    bool fully_init = false;
+    uint32_t collision_state = 0;
+    vec2f last_collision_pos;
     vec2f collision_pos;
     vec2f collision_dim = {2, 2};
 
@@ -69,7 +77,7 @@ struct collideable
 
     virtual void on_collide(collideable* other) {}
 
-    bool intersects(collideable* other)
+    virtual bool intersects(collideable* other)
     {
         //if (RectA.Left < RectB.Right && RectA.Right > RectB.Left &&
         //RectA.Top > RectB.Bottom && RectA.Bottom < RectB.Top )
@@ -95,10 +103,8 @@ struct collideable
 
         return false;*/
 
-        if(type == collide::RAD)
+        if(type == collide::RAD && other->type == collide::RAD)
         {
-            float rad = collision_dim.length();
-
             vec2f diff = collision_pos - other->collision_pos;
 
             if(diff.length() < collision_dim.length()/2.f || diff.length() < other->collision_dim.length()/2.f)
@@ -107,9 +113,29 @@ struct collideable
             return false;
         }
 
+        if(type == collide::RAD && other->type == collide::PHYS_LINE)
+            return other->intersects(this);
+
+        /*if(type == collide::PHYS_LINE && other->type == collide::RAD)
+        {
+            return
+        }*/
+
         printf("unsupported collider type %i\n", type);
 
         return false;
+    }
+
+    void set_collision_pos(vec2f pos)
+    {
+        last_collision_pos = collision_pos;
+        collision_pos = pos;
+    }
+
+    void init_collision_pos(vec2f pos)
+    {
+        last_collision_pos = pos;
+        collision_pos = pos;
     }
 
     virtual ~collideable()
@@ -118,7 +144,7 @@ struct collideable
     }
 };
 
-struct projectile : renderable, collideable
+struct projectile : virtual renderable, virtual collideable, virtual base_class
 {
     int type = 0;
     vec2f pos;
@@ -131,13 +157,13 @@ struct projectile : renderable, collideable
 
     }
 
-    virtual void on_collide(collideable* other) override {printf("projectile collide\n");}
+    virtual void on_collide(collideable* other) override {should_cleanup = true;}
 
     void tick(float dt_s, state& st)
     {
         pos = pos + dir * dt_s;
 
-        collision_pos = pos;
+        set_collision_pos(pos);
         collision_dim = {rad*2, rad*2};
     }
 
@@ -214,10 +240,37 @@ struct damageable
     }
 };
 
-struct physics_barrier : renderable
+struct physics_barrier : virtual renderable, virtual collideable, virtual base_class
 {
     vec2f p1;
     vec2f p2;
+
+    physics_barrier() : collideable(-1, collide::PHYS_LINE) {}
+
+    bool intersects(collideable* other)
+    {
+        if(other->type != collide::RAD)
+            return false;
+
+        /*if(crosses(other->collision_pos, other->last_collision_pos))
+        {
+            other->should_cleanup = true;
+        }*/
+
+        vec2f old_pos = other->last_collision_pos;
+
+        /*if(other->fully_init)
+        {
+            old_pos = other->last_collision_pos;
+        }*/
+
+        if(crosses(other->collision_pos, old_pos))
+        {
+            return true;
+        }
+
+        return false;
+    }
 
     virtual void render(sf::RenderWindow& win)
     {
@@ -347,7 +400,7 @@ struct physics_barrier : renderable
     }
 };
 
-struct physics_barrier_manager : renderable_manager_base<physics_barrier>
+struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier>, virtual collideable_manager_base<physics_barrier>
 {
     bool adding = false;
     vec2f adding_point;
@@ -556,6 +609,7 @@ struct debug_controls
 
             projectile* p = st.projectile_manage.make_new<projectile>(player->team);
             p->pos = ppos;
+            p->init_collision_pos(p->pos);
             p->dir = to_mouse.norm() * 1000.f;
         }
     }
@@ -777,6 +831,8 @@ int main()
 
         win.clear();
 
+        projectile_manage.cleanup();
+
         renderable_manage.render(win);
         physics_barrier_manage.render(win);
         game_world_manage.render(win);
@@ -784,6 +840,7 @@ int main()
         character_manage.render(win);
 
         projectile_manage.check_collisions(character_manage);
+        projectile_manage.check_collisions(physics_barrier_manage);
 
         ImGui::Render();
         win.display();
