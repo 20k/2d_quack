@@ -8,7 +8,9 @@
 #include "util.hpp"
 #include <net/shared.hpp>
 #include <set>
+#include "camera.hpp"
 #include "state.hpp"
+
 
 bool suppress_mouse = false;
 
@@ -738,9 +740,11 @@ int main()
 
     projectile_manager projectile_manage;
 
+    camera cam(win);
+
     debug_controls controls;
 
-    state st(character_manage, physics_barrier_manage, game_world_manage, renderable_manage, projectile_manage);
+    state st(character_manage, physics_barrier_manage, game_world_manage, renderable_manage, projectile_manage, cam);
 
     sf::Clock clk;
 
@@ -796,6 +800,11 @@ int main()
 
             move_dir.y() += (int)key.isKeyPressed(sf::Keyboard::S);
             move_dir.y() -= (int)key.isKeyPressed(sf::Keyboard::W);
+
+            if(controls.controls_state == 0)
+            {
+                cam.move_pos(move_dir);
+            }
         }
 
         /*if(ONCE_MACRO(sf::Mouse::Left) && win.hasFocus() && controls.state == 0 && !suppress_mouse)
@@ -841,6 +850,14 @@ int main()
                 test->jump();
             }
         }
+
+
+        if(controls.controls_state == 1)
+        {
+            cam.set_pos(test->pos);
+        }
+
+        cam.update_camera();
 
         win.clear();
 
