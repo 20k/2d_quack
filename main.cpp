@@ -629,8 +629,10 @@ struct debug_controls
         }
     }
 
-    void tick(vec2f mpos, state& st, character* player)
+    void tick(state& st, character* player)
     {
+        vec2f mpos = st.cam.get_mouse_position_world();
+
         st.game_world_manage.disable_rendering();
 
         ImGui::Begin("Control menus");
@@ -803,7 +805,12 @@ int main()
 
             if(controls.controls_state == 0)
             {
-                cam.move_pos(move_dir);
+                float mult = 1.f;
+
+                if(key.isKeyPressed(sf::Keyboard::LShift))
+                    mult = 10.f;
+
+                cam.move_pos(move_dir * mult);
             }
         }
 
@@ -815,7 +822,7 @@ int main()
         //test->velocity += move_dir * mult;
 
         if(win.hasFocus())
-            controls.tick(mpos, st, test);
+            controls.tick(st, test);
 
         if(controls.controls_state == 0)
         {
