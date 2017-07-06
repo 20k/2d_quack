@@ -22,6 +22,7 @@ void leave_game(udp_sock& sock)
     sock.close();
 }
 
+///need to update this with what system we're using
 struct network_variable
 {
     net_type::player_t player_id = -1;
@@ -59,6 +60,8 @@ struct network_variable
 ///so, network state should take other systems
 ///each system has a network id
 ///when receiving an object, we will have its system as part of its id
+///then each system does network_state.check(system), and relevant new objects are carted into the system
+///maintains nice separation
 struct network_state
 {
     int my_id = -1;
