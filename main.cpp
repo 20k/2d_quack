@@ -11,6 +11,7 @@
 #include "camera.hpp"
 #include "state.hpp"
 
+#include "networking.hpp"
 
 bool suppress_mouse = false;
 
