@@ -24,7 +24,7 @@ void leave_game(udp_sock& sock)
 
 struct network_variable
 {
-    int16_t player_id = -1;
+    net_type::player_t player_id = -1;
     int16_t object_id = -1;
 
     network_variable(int32_t in)
@@ -97,10 +97,12 @@ struct network_state
 
                 if(type == message::FORWARDING)
                 {
-                    int32_t player_id = fetch.get<net_type::player_t>();
+                    //int32_t player_id = fetch.get<net_type::player_t>();
+
+                    network_variable nv = fetch.get<network_variable>();
 
                     //available_data[player_id] = fetch;
-                    available_data.push_back({network_variable(player_id), fetch});
+                    available_data.push_back({nv, fetch});
                 }
 
                 if(type == message::CLIENTJOINACK)
@@ -121,14 +123,14 @@ struct network_state
         join_game("127.0.0.1", GAMESERVER_PORT);
     }
 
-    void forward_data(int player_id, int object_id, byte_vector& vec)
+    void forward_data(int player_id, int object_id, const byte_vector& vec)
     {
         network_variable nv(player_id, object_id);
 
         byte_vector cv;
         cv.push_back(canary_start);
         cv.push_back(message::FORWARDING);
-        cv.push_back<net_type::player_t>(nv.compose());
+        cv.push_back<network_variable>(nv);
         cv.push_vector(vec);
         cv.push_back(canary_end);
 
