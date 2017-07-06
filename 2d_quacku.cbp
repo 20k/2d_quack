@@ -60,8 +60,10 @@
 		<Unit filename="character.hpp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="managers.hpp" />
+		<Unit filename="networking.hpp" />
 		<Unit filename="projectile.hpp" />
 		<Unit filename="state.hpp" />
+		<Unit filename="util.hpp" />
 		<Extensions>
 			<code_completion />
 			<envvars />

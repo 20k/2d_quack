@@ -27,21 +27,23 @@ struct network_variable
 {
     net_type::player_t player_id = -1;
     int16_t object_id = -1;
+    int16_t system_network_id = -1;
 
-    network_variable(int32_t in)
+    /*network_variable(int32_t in)
     {
         *this = decompose(in);
-    }
+    }*/
 
-    network_variable(int16_t pid, int16_t oid)
+    network_variable(int16_t pid, int16_t oid, int16_t sid)
     {
         player_id = pid;
         object_id = oid;
+        system_network_id = sid;
     }
 
     network_variable(){}
 
-    network_variable decompose(int32_t in) const
+    /*network_variable decompose(int32_t in) const
     {
         network_variable ret;
 
@@ -54,7 +56,7 @@ struct network_variable
     int32_t compose()
     {
         return (player_id << 16) | object_id;
-    }
+    }*/
 };
 
 ///so, network state should take other systems
@@ -70,7 +72,7 @@ struct network_state
     sockaddr_storage store;
     bool have_sock = false;
 
-   std::vector<std::pair<network_variable, byte_fetch>> available_data;
+    std::vector<std::pair<network_variable, byte_fetch>> available_data;
 
     void tick()
     {
@@ -126,9 +128,9 @@ struct network_state
         join_game("127.0.0.1", GAMESERVER_PORT);
     }
 
-    void forward_data(int player_id, int object_id, const byte_vector& vec)
+    void forward_data(int player_id, int object_id, int system_network_id, const byte_vector& vec)
     {
-        network_variable nv(player_id, object_id);
+        network_variable nv(player_id, object_id, system_network_id);
 
         byte_vector cv;
         cv.push_back(canary_start);
@@ -144,16 +146,38 @@ struct network_state
     {
         return next_object_id++;
     }
+
+    template<typename T>
+    void check_create_network_entity(T& generic_manager)
+    {
+        for(auto& i : available_data)
+        {
+            network_variable& var = i.first;
+
+            if(var.system_network_id != generic_manager.system_network_id)
+                continue;
+
+            if(var.player_id == my_id)
+                continue;
+
+            if(generic_manager.owns(var.object_id))
+                continue;
+
+            ///make new slave entity here!
+
+            generic_manager.make_new();
+        }
+    }
 };
 
 struct network_serialisable
 {
-    int my_id = -1;
+    int owning_id = -1;
 
-    virtual byte_vector serialise_network() = 0;
-    virtual deserialise_network(byte_fetch& fetch) = 0;
+    virtual byte_vector serialise_network() {return byte_vector();};
+    virtual deserialise_network(byte_fetch& fetch) {};
 
-    virtual void update(network_state& state) = 0;
+    //virtual void update(network_state& state) = 0;
     virtual void process_recv(network_state& state) = 0;
 };
 
@@ -161,25 +185,32 @@ struct networkable_host : virtual network_serialisable
 {
     int object_id = -1;
 
-    networkable_host(network_state& ns)
+    network_state& ncapture;
+
+    networkable_host(network_state& ns) : ncapture(ns)
     {
         object_id = ns.get_next_object_id();
-        my_id = ns.my_id;
+        owning_id = ns.my_id;
     }
 
     ///send serialisable properties across network
-    virtual void update(network_state& ns)
+    virtual void update(network_state& ns, int system_network_id)
     {
-        ns.forward_data(my_id, object_id, serialise_network());
+        owning_id = ns.my_id;
+
+        ns.forward_data(owning_id, object_id, system_network_id, serialise_network());
     }
 
+    ///don't need system id here, only for creating new networkable clients
     virtual void process_recv(network_state& ns)
     {
+        owning_id = ns.my_id;
+
         for(auto& i : ns.available_data)
         {
             network_variable& var = i.first;
 
-            if(var.player_id == my_id && var.object_id == object_id)
+            if(var.player_id == owning_id && var.object_id == object_id)
             {
                 deserialise_network(i.second);
             }
@@ -190,18 +221,33 @@ struct networkable_host : virtual network_serialisable
 ///we need to discover new objects as they're sent to us
 struct networkable_client : virtual network_serialisable
 {
+    bool should_update = false;
+
     int object_id = -1;
 
     ///if we have properties we need to network, but not movement
     ///eg we don't own this
-    virtual void update(network_state& ns)
+    virtual void update(network_state& ns, int system_network_id)
     {
+        if(!should_update)
+            return;
 
+        ns.forward_data(owning_id, object_id, system_network_id, serialise_network());
+
+        should_update = false;
     }
 
     virtual void process_recv(network_state& ns)
     {
+        for(auto& i : ns.available_data)
+        {
+            network_variable& var = i.first;
 
+            if(var.player_id == owning_id && var.object_id == object_id)
+            {
+                deserialise_network(i.second);
+            }
+        }
     }
 };
 

@@ -18,6 +18,7 @@ bool suppress_mouse = false;
 struct base_class
 {
     bool should_cleanup = false;
+    int16_t object_id = -1;
 };
 
 struct renderable
@@ -466,6 +467,8 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
 
 struct game_world_manager
 {
+    int16_t system_network_id = -1;
+
     int cur_spawn = 0;
     std::vector<vec2f> spawn_positions;
 
@@ -605,7 +608,7 @@ struct debug_controls
 
         if(ImGui::Button("Spawn Enemy"))
         {
-            character* c = st.character_manage.make_new<character>(1);
+            player_character* c = dynamic_cast<player_character*>(st.character_manage.make_new<player_character>(1, st.net_state));
 
             c->pos = st.game_world_manage.get_next_spawn();
             c->last_pos = c->pos;
@@ -615,7 +618,7 @@ struct debug_controls
         ImGui::End();
     }
 
-    void player_controls(vec2f mpos, state& st, character* player)
+    void player_controls(vec2f mpos, state& st, player_character* player)
     {
         if(!suppress_mouse && ONCE_MACRO(sf::Mouse::Left))
         {
@@ -630,7 +633,7 @@ struct debug_controls
         }
     }
 
-    void tick(state& st, character* player)
+    void tick(state& st, player_character* player)
     {
         vec2f mpos = st.cam.get_mouse_position_world();
 
@@ -736,8 +739,6 @@ int main()
     renderable_manager renderable_manage;
     character_manager character_manage;
 
-    character* test = character_manage.make_new<character>(0);
-
     physics_barrier_manager physics_barrier_manage;
     game_world_manager game_world_manage;
 
@@ -745,9 +746,19 @@ int main()
 
     camera cam(win);
 
+    network_state net_state;
+
     debug_controls controls;
 
-    state st(character_manage, physics_barrier_manage, game_world_manage, renderable_manage, projectile_manage, cam);
+    state st(character_manage, physics_barrier_manage, game_world_manage, renderable_manage, projectile_manage, cam, net_state);
+
+    st.character_manage.system_network_id = 0;
+    st.physics_barrier_manage.system_network_id = 1;
+    st.game_world_manage.system_network_id = 2;
+    st.renderable_manage.system_network_id = 3;
+    st.projectile_manage.system_network_id = 4;
+
+    player_character* test = dynamic_cast<player_character*>(character_manage.make_new<player_character>(0, st.net_state));
 
     sf::Clock clk;
 

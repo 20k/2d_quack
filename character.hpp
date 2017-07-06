@@ -5,14 +5,29 @@
 
 struct projectile;
 
-struct character : virtual renderable, virtual damageable, virtual collideable, virtual base_class
+struct character_base : virtual renderable, virtual damageable, virtual collideable, virtual base_class, virtual network_serialisable
+{
+    character_base(int team) : collideable(team, collide::RAD) {}
+
+    vec2f pos;
+
+    virtual void tick(float dt_s, state& st) {};
+};
+
+struct character : virtual character_base, virtual networkable_client
+{
+    character() : collideable(-1, collide::RAD), character_base(-1) {}
+};
+
+///this is a player character
+struct player_character : virtual character_base, virtual networkable_host
 {
     bool spawned = false;
     float spawn_timer = 0.f;
     float spawn_timer_max = 5.f;
 
     vec2f last_pos;
-    vec2f pos;
+
     //vec2f velocity;
     vec2f player_acceleration;
     vec2f acceleration;
@@ -32,7 +47,7 @@ struct character : virtual renderable, virtual damageable, virtual collideable, 
     float jump_cooldown_cur = 0.f;
     float jump_cooldown_time = 0.15f;
 
-    character(int team) : collideable(team, collide::RAD)
+    player_character(int team, network_state& ns) : character_base(team), collideable(team, collide::RAD), networkable_host(ns)
     {
 
     }
@@ -238,7 +253,7 @@ struct character : virtual renderable, virtual damageable, virtual collideable, 
         }
     }
 
-    void tick(float dt, state& st)
+    void tick(float dt, state& st) override
     {
         stuck_to_surface = false;
         can_jump = false;
@@ -394,11 +409,11 @@ struct character : virtual renderable, virtual damageable, virtual collideable, 
     }
 };*/
 
-struct character_manager : virtual renderable_manager_base<character>, virtual collideable_manager_base<character>
+struct character_manager : virtual renderable_manager_base<character_base>, virtual collideable_manager_base<character_base>
 {
     void tick(float dt, state& st)
     {
-        for(character* c : objs)
+        for(character_base* c : objs)
         {
             c->tick(dt, st);
         }

@@ -6,6 +6,7 @@ struct physics_barrier_manager;
 struct game_world_manager;
 struct renderable_manager;
 struct projectile_manager;
+struct network_state;
 
 struct state
 {
@@ -15,13 +16,15 @@ struct state
     renderable_manager& renderable_manage;
     projectile_manager& projectile_manage;
     camera& cam;
+    network_state& net_state;
 
     state(character_manager& pcharacter_manage,
           physics_barrier_manager& pphysics_barrier_manage,
           game_world_manager& pgame_world_manage,
           renderable_manager& prenderable_manage,
           projectile_manager& pprojectile_manage,
-          camera& pcam)
+          camera& pcam,
+          network_state& pnet_state)
           :
 
 
@@ -30,7 +33,8 @@ struct state
              game_world_manage(pgame_world_manage),
              renderable_manage(prenderable_manage),
              projectile_manage(pprojectile_manage),
-             cam(pcam)
+             cam(pcam),
+             net_state(pnet_state)
      {}
 };
 

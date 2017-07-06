@@ -7,12 +7,18 @@ struct projectile;
 template<typename T>
 struct object_manager
 {
+    int16_t system_network_id = -1;
+
     std::vector<T*> objs;
+
+    uint16_t o_id = 0;
 
     template<typename real_type, typename... U>
     T* make_new(U... u)
     {
         T* nt = new real_type(u...);
+
+        nt->object_id = o_id++;
 
         objs.push_back(nt);
 
@@ -73,6 +79,17 @@ struct object_manager
                 continue;
             }
         }
+    }
+
+    bool owns(int id)
+    {
+        for(auto& i : objs)
+        {
+            if(i->object_id == id)
+                return true;
+        }
+
+        return false;
     }
 };
 
