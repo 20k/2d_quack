@@ -97,11 +97,8 @@ struct network_state
 
                 if(type == message::FORWARDING)
                 {
-                    //int32_t player_id = fetch.get<net_type::player_t>();
-
                     network_variable nv = fetch.get<network_variable>();
 
-                    //available_data[player_id] = fetch;
                     available_data.push_back({nv, fetch});
                 }
 
