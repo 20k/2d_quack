@@ -22,14 +22,49 @@ void leave_game(udp_sock& sock)
     sock.close();
 }
 
+struct network_variable
+{
+    int16_t player_id = -1;
+    int16_t object_id = -1;
+
+    network_variable(int32_t in)
+    {
+        *this = decompose(in);
+    }
+
+    network_variable(int16_t pid, int16_t oid)
+    {
+        player_id = pid;
+        object_id = oid;
+    }
+
+    network_variable(){}
+
+    network_variable decompose(int32_t in) const
+    {
+        network_variable ret;
+
+        ret.player_id = (in >> 16) & 0xFFFF;
+        ret.object_id = in & 0xFFFF;
+
+        return ret;
+    }
+
+    int32_t compose()
+    {
+        return (player_id << 16) | object_id;
+    }
+};
+
 struct network_state
 {
     int my_id = -1;
+    int16_t next_object_id = 0;
     udp_sock sock;
     sockaddr_storage store;
     bool have_sock = false;
 
-    std::unordered_map<int32_t, byte_fetch> available_data;
+   std::vector<std::pair<network_variable, byte_fetch>> available_data;
 
     void tick()
     {
@@ -64,7 +99,8 @@ struct network_state
                 {
                     int32_t player_id = fetch.get<net_type::player_t>();
 
-                    available_data[player_id] = fetch;
+                    //available_data[player_id] = fetch;
+                    available_data.push_back({network_variable(player_id), fetch});
                 }
 
                 if(type == message::CLIENTJOINACK)
@@ -85,47 +121,80 @@ struct network_state
         join_game("127.0.0.1", GAMESERVER_PORT);
     }
 
-    void forward_data(int id, byte_vector& vec)
+    void forward_data(int player_id, int object_id, byte_vector& vec)
     {
-        byte_vector vec;
-        vec.push_back(canary_start);
-        vec.push_back(message::FORWARDING);
-        vec.push_back<net_type::player_t>(id);
-        vec.push_vector(vec);
-        vec.push_back(canary_end);
+        network_variable nv(player_id, object_id);
+
+        byte_vector cv;
+        cv.push_back(canary_start);
+        cv.push_back(message::FORWARDING);
+        cv.push_back<net_type::player_t>(nv.compose());
+        cv.push_vector(vec);
+        cv.push_back(canary_end);
+
+        udp_send_to(sock, cv.ptr, (const sockaddr*)&store);
+    }
+
+    int16_t get_next_object_id()
+    {
+        return next_object_id++;
     }
 };
 
 struct network_serialisable
 {
+    int my_id = -1;
+
     virtual byte_vector serialise_network() = 0;
     virtual deserialise_network(byte_fetch& fetch) = 0;
+
+    virtual void update(network_state& state) = 0;
+    virtual void process_recv(network_state& state) = 0;
 };
 
 struct networkable_host : virtual network_serialisable
 {
-    ///send serialisable properties across network
-    virtual void update(networking_state& state)
-    {
+    int object_id = -1;
 
+    networkable_host(network_state& ns)
+    {
+        object_id = ns.get_next_object_id();
+        my_id = ns.my_id;
     }
 
-    virtual void process_recv()
+    ///send serialisable properties across network
+    virtual void update(network_state& ns)
     {
+        ns.forward_data(my_id, object_id, serialise_network());
+    }
 
+    virtual void process_recv(network_state& ns)
+    {
+        for(auto& i : ns.available_data)
+        {
+            network_variable& var = i.first;
+
+            if(var.player_id == my_id && var.object_id == object_id)
+            {
+                deserialise_network(i.second);
+            }
+        }
     }
 };
 
+///we need to discover new objects as they're sent to us
 struct networkable_client : virtual network_serialisable
 {
+    int object_id = -1;
+
     ///if we have properties we need to network, but not movement
     ///eg we don't own this
-    virtual void update()
+    virtual void update(network_state& ns)
     {
 
     }
 
-    virtual void process_recv()
+    virtual void process_recv(network_state& ns)
     {
 
     }
