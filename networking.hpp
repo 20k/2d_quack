@@ -56,6 +56,9 @@ struct network_variable
     }
 };
 
+///so, network state should take other systems
+///each system has a network id
+///when receiving an object, we will have its system as part of its id
 struct network_state
 {
     int my_id = -1;
