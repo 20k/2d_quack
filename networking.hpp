@@ -142,8 +142,6 @@ struct network_state
                     {
                         printf("forwarding ruh roh\n");
                     }
-
-                    printf("hi there\n");
                 }
 
                 if(type == message::CLIENTJOINACK)
@@ -250,8 +248,6 @@ struct network_state
             found_entity->object_id = var.object_id;
             found_entity->owning_id = var.player_id;
             found_entity->ownership_class = var.player_id;
-
-            printf("MADE\n");
         }
     }
 
