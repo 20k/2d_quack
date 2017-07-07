@@ -884,7 +884,7 @@ int main()
         net_state.tick();
 
         character_manage.tick_create_networking<character_manager, character>(net_state);
-        character_manage.update_entities(net_state);
+        character_manage.update_network_entities(net_state);
 
         cam.update_camera();
 

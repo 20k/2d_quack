@@ -109,7 +109,7 @@ struct network_manager_base : virtual object_manager<T>
         ns.template check_create_network_entity<manager_type, real_type>(*type);
     }
 
-    void update_entities(network_state& ns)
+    void update_network_entities(network_state& ns)
     {
         for(T* obj : object_manager<T>::objs)
         {

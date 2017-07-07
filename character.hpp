@@ -14,6 +14,7 @@ struct character_base : virtual renderable, virtual damageable, virtual collidea
     virtual void tick(float dt_s, state& st) {};
 };
 
+///slave network character
 struct character : virtual character_base, virtual networkable_client
 {
     character() : collideable(-1, collide::RAD), character_base(-1) {}
