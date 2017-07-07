@@ -204,6 +204,7 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
         byte_vector vec;
 
         vec.push_back<vec2f>(pos);
+        vec.push_back<int32_t>(should_cleanup);
 
         return vec;
     }
@@ -211,6 +212,7 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
     virtual void deserialise_network(byte_fetch& fetch) override
     {
         vec2f fpos = fetch.get<vec2f>();
+        should_cleanup = fetch.get<int32_t>();
 
         int found_canary = fetch.get<decltype(canary_end)>();
 
@@ -927,6 +929,9 @@ int main()
         net_state.tick_join_game(dt_s);
         net_state.tick();
 
+        projectile_manage.check_collisions(character_manage);
+        projectile_manage.check_collisions(physics_barrier_manage);
+
         projectile_manage.tick_all_networking<projectile_manager, projectile>(net_state);
         character_manage.tick_all_networking<character_manager, character>(net_state);
 
@@ -942,8 +947,6 @@ int main()
         projectile_manage.render(win);
         character_manage.render(win);
 
-        projectile_manage.check_collisions(character_manage);
-        projectile_manage.check_collisions(physics_barrier_manage);
 
         ImGui::Render();
         win.display();
