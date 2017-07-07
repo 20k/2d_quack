@@ -214,10 +214,7 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
         vec2f fpos = fetch.get<vec2f>();
         should_cleanup = fetch.get<int32_t>();
 
-        int found_canary = fetch.get<decltype(canary_end)>();
-
-        if(found_canary == canary_end)
-            pos = fpos;
+        pos = fpos;
     }
 
     virtual ~projectile_base() {}
@@ -274,13 +271,17 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
     }
 };*/
 
-struct damageable
+struct damageable_base : virtual network_serialisable
 {
     float hp = 1.f;
     float max_hp = 1.f;
 
-    void damage(float amount)
+    float pending_network_damage = 0.f;
+
+    virtual void damage(float amount)
     {
+        pending_network_damage += amount;
+
         hp -= amount;
 
         hp = std::max(hp, 0.f);
@@ -301,9 +302,59 @@ struct damageable
         return hp <= 0.f;
     }
 
-    virtual ~damageable()
+    virtual ~damageable_base()
     {
 
+    }
+};
+
+struct damageable_client : virtual damageable_base, virtual networkable_client
+{
+    virtual void damage(float amount)
+    {
+        damageable_base::damage(amount);
+
+        should_update = true;
+    }
+
+    virtual byte_vector serialise_network() override
+    {
+        pending_network_damage = 0.f;
+
+        byte_vector vec;
+        vec.push_back<float>(pending_network_damage);
+
+        return vec;
+    }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        //float pending_damage = fetch.get<float>();
+
+        float found_hp = fetch.get<float>();
+
+        hp = found_hp;
+    }
+};
+
+struct damageable_host : virtual damageable_base, virtual networkable_host
+{
+    damageable_host(network_state& ns) : networkable_host(ns) {}
+
+    virtual byte_vector serialise_network() override
+    {
+        byte_vector ret;
+        ret.push_back<float>(hp);
+
+        return ret;
+    }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        ///received from a client
+        float pending_damage = fetch.get<float>();
+
+        damage(pending_damage);
     }
 };
 

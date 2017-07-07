@@ -310,6 +310,15 @@ struct networkable_host : virtual network_serialisable
             {
                 deserialise_network(std::get<1>(i));
 
+                byte_fetch& fetch = std::get<1>(i);
+
+                int canary = fetch.get<decltype(canary_end)>();
+
+                if(canary != canary_end)
+                {
+                    printf("error host process recv");
+                }
+
                 std::get<2>(i) = true;
             }
         }
@@ -342,6 +351,15 @@ struct networkable_client : virtual network_serialisable
             if(var.player_id == owning_id && var.object_id == object_id)
             {
                 deserialise_network(std::get<1>(i));
+
+                byte_fetch& fetch = std::get<1>(i);
+
+                int canary = fetch.get<decltype(canary_end)>();
+
+                if(canary != canary_end)
+                {
+                    printf("error host process recv");
+                }
 
                 std::get<2>(i) = true;
             }

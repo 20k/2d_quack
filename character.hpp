@@ -5,7 +5,8 @@
 
 struct projectile;
 
-struct character_base : virtual renderable, virtual damageable, virtual collideable, virtual base_class, virtual network_serialisable
+///do damage properly with pending damage in damageable
+struct character_base : virtual renderable, virtual damageable_base, virtual collideable, virtual base_class, virtual network_serialisable
 {
     character_base(int team) : collideable(team, collide::RAD) {}
 
@@ -22,7 +23,7 @@ struct character_base : virtual renderable, virtual damageable, virtual collidea
 };
 
 ///slave network character
-struct character : virtual character_base, virtual networkable_client
+struct character : virtual character_base, virtual networkable_client, virtual damageable_client
 {
     character() : collideable(-1, collide::RAD), character_base(-1) {}
 
@@ -31,6 +32,8 @@ struct character : virtual character_base, virtual networkable_client
         byte_vector vec;
         vec.push_back(pos);
 
+        //vec.push_back(damageable_client)
+
         return vec;
     }
 
@@ -38,10 +41,7 @@ struct character : virtual character_base, virtual networkable_client
     {
         vec2f fpos = fetch.get<vec2f>();
 
-        int found_canary = fetch.get<decltype(canary_end)>();
-
-        if(found_canary == canary_end)
-            pos = fpos;
+        pos = fpos;
     }
 
     void render(sf::RenderWindow& win) override
@@ -54,7 +54,7 @@ struct character : virtual character_base, virtual networkable_client
 };
 
 ///this is a player character
-struct player_character : virtual character_base, virtual networkable_host
+struct player_character : virtual character_base, virtual networkable_host, virtual damageable_host
 {
     bool spawned = false;
     float spawn_timer = 0.f;
@@ -81,7 +81,7 @@ struct player_character : virtual character_base, virtual networkable_host
     float jump_cooldown_cur = 0.f;
     float jump_cooldown_time = 0.15f;
 
-    player_character(int team, network_state& ns) : character_base(team), collideable(team, collide::RAD), networkable_host(ns)
+    player_character(int team, network_state& ns) : character_base(team), collideable(team, collide::RAD), networkable_host(ns), damageable_host(ns)
     {
 
     }
@@ -437,10 +437,7 @@ struct player_character : virtual character_base, virtual networkable_host
     {
         vec2f fpos = fetch.get<vec2f>();
 
-        int found_canary = fetch.get<decltype(canary_end)>();
-
-        if(found_canary == canary_end)
-            pos = fpos;
+        pos = fpos;
     }
 };
 
