@@ -83,11 +83,11 @@ struct object_manager
         }
     }
 
-    bool owns(int id)
+    bool owns(int id, int32_t ownership_class)
     {
         for(auto& i : objs)
         {
-            if(i->object_id == id)
+            if(i->object_id == id && i->ownership_class == ownership_class)
                 return true;
         }
 

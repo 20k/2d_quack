@@ -110,8 +110,6 @@ struct network_state
             byte_fetch fetch;
             fetch.ptr.swap(data);
 
-            printf("readable\n");
-
             //this_frame_stats.bytes_in += data.size();
 
             while(!fetch.finished() && any_recv)
@@ -133,6 +131,18 @@ struct network_state
 
                     available_data.push_back(std::make_tuple(nv, fetch, false));
 
+                    for(int i=0; i < (data_size - sizeof(network_variable)) && i < 255; i++)
+                    {
+                        fetch.get<uint8_t>();
+                    }
+
+                    auto found_end = fetch.get<decltype(canary_end)>();
+
+                    if(found_end != canary_end)
+                    {
+                        printf("forwarding ruh roh\n");
+                    }
+
                     printf("hi there\n");
                 }
 
@@ -144,6 +154,10 @@ struct network_state
 
                     if(canary_found == canary_end)
                         my_id = recv_id;
+                    else
+                    {
+                        printf("err inclientjoinack\n");
+                    }
                 }
 
                 if(type == message::TEAMASSIGNMENT)
@@ -220,7 +234,7 @@ struct network_state
             if(var.player_id == my_id)
                 continue;
 
-            if(generic_manager.owns(var.object_id))
+            if(generic_manager.owns(var.object_id, var.player_id))
                 continue;
 
             ///make new slave entity here!
@@ -235,8 +249,9 @@ struct network_state
 
             found_entity->object_id = var.object_id;
             found_entity->owning_id = var.player_id;
+            found_entity->ownership_class = var.player_id;
 
-            found_entity->process_recv(*this);
+            printf("MADE\n");
         }
     }
 

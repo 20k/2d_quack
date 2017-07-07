@@ -15,6 +15,7 @@ struct base_class
 {
     bool should_cleanup = false;
     int16_t object_id = -1;
+    int16_t ownership_class = -1;
 };
 
 #include "networking.hpp"
