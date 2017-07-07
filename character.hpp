@@ -17,6 +17,32 @@ struct character_base : virtual renderable, virtual damageable, virtual collidea
 struct character : virtual character_base, virtual networkable_client
 {
     character() : collideable(-1, collide::RAD), character_base(-1) {}
+
+    virtual byte_vector serialise_network() override
+    {
+        byte_vector vec;
+        vec.push_back(pos);
+
+        return vec;
+    }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        vec2f fpos = fetch.get<vec2f>();
+
+        int found_canary = fetch.get<decltype(canary_end)>();
+
+        if(found_canary == canary_end)
+            pos = fpos;
+    }
+
+    void render(sf::RenderWindow& win) override
+    {
+        //if(!spawned)
+        //    return;
+
+        renderable::render(win, pos);
+    }
 };
 
 ///this is a player character
@@ -389,6 +415,25 @@ struct player_character : virtual character_base, virtual networkable_host
     {
         pos = fetch.get<vec2f>();
     }
+
+    virtual byte_vector serialise_network() override
+    {
+        byte_vector vec;
+
+        vec.push_back<vec2f>(pos);
+
+        return vec;
+    }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        vec2f fpos = fetch.get<vec2f>();
+
+        int found_canary = fetch.get<decltype(canary_end)>();
+
+        if(found_canary == canary_end)
+            pos = fpos;
+    }
 };
 
 /*struct character_manager
@@ -409,7 +454,7 @@ struct player_character : virtual character_base, virtual networkable_host
     }
 };*/
 
-struct character_manager : virtual renderable_manager_base<character_base>, virtual collideable_manager_base<character_base>
+struct character_manager : virtual renderable_manager_base<character_base>, virtual collideable_manager_base<character_base>, virtual network_manager_base<character_base>
 {
     void tick(float dt, state& st)
     {
@@ -418,6 +463,8 @@ struct character_manager : virtual renderable_manager_base<character_base>, virt
             c->tick(dt, st);
         }
     }
+
+    virtual ~character_manager(){}
 };
 
 #endif // CHARACTER_HPP_INCLUDED

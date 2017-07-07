@@ -4,14 +4,16 @@
 struct renderable;
 struct projectile;
 
+///shared state
+///every object has a unique id globally
+uint16_t o_id = 0;
+
 template<typename T>
 struct object_manager
 {
     int16_t system_network_id = -1;
 
     std::vector<T*> objs;
-
-    uint16_t o_id = 0;
 
     template<typename real_type, typename... U>
     T* make_new(U... u)
@@ -91,6 +93,45 @@ struct object_manager
 
         return false;
     }
+};
+
+template<typename T>
+struct network_manager_base : virtual object_manager<T>
+{
+    ///real type is the type to create if we receive a new networked entity
+    template<typename manager_type, typename real_type>
+    void tick_create_networking(network_state& ns)
+    {
+        manager_type* type = dynamic_cast<manager_type*>(this);
+
+        ///when reading this, ignore the template keyword
+        ///its because this is a dependent type
+        ns.template check_create_network_entity<manager_type, real_type>(*type);
+    }
+
+    void update_entities(network_state& ns)
+    {
+        for(T* obj : object_manager<T>::objs)
+        {
+            networkable_host* host_object = dynamic_cast<networkable_host*>(obj);
+
+            if(host_object != nullptr)
+            {
+                host_object->update(ns, object_manager<T>::system_network_id);
+                host_object->process_recv(ns);
+            }
+
+            networkable_client* client_object = dynamic_cast<networkable_client*>(obj);
+
+            if(client_object != nullptr)
+            {
+                client_object->update(ns, object_manager<T>::system_network_id);
+                client_object->process_recv(ns);
+            }
+        }
+    }
+
+    virtual ~network_manager_base(){}
 };
 
 template<typename T>

@@ -17,11 +17,6 @@ udp_sock join_game(const std::string& address, const std::string& port)
     return sock;
 }
 
-void leave_game(udp_sock& sock)
-{
-    sock.close();
-}
-
 ///need to update this with what system we're using
 struct network_variable
 {
@@ -72,7 +67,32 @@ struct network_state
     sockaddr_storage store;
     bool have_sock = false;
 
-    std::vector<std::pair<network_variable, byte_fetch>> available_data;
+    float timeout_max = 5.f;
+    float timeout = timeout_max;
+
+    std::vector<std::tuple<network_variable, byte_fetch, bool>> available_data;
+
+    void tick_join_game(float dt_s)
+    {
+        if(my_id != -1)
+            return;
+
+        timeout += dt_s;
+
+        if(timeout > timeout_max)
+        {
+            sock = join_game("127.0.0.1", GAMESERVER_PORT);
+
+            timeout = 0;
+        }
+    }
+
+    void leave_game()
+    {
+        sock.close();
+
+        my_id = -1;
+    }
 
     void tick()
     {
@@ -90,6 +110,8 @@ struct network_state
             byte_fetch fetch;
             fetch.ptr.swap(data);
 
+            printf("readable\n");
+
             //this_frame_stats.bytes_in += data.size();
 
             while(!fetch.finished() && any_recv)
@@ -105,9 +127,13 @@ struct network_state
 
                 if(type == message::FORWARDING)
                 {
+                    uint32_t data_size = fetch.get<uint32_t>();
+
                     network_variable nv = fetch.get<network_variable>();
 
-                    available_data.push_back({nv, fetch});
+                    available_data.push_back(std::make_tuple(nv, fetch, false));
+
+                    printf("hi there\n");
                 }
 
                 if(type == message::CLIENTJOINACK)
@@ -119,22 +145,56 @@ struct network_state
                     if(canary_found == canary_end)
                         my_id = recv_id;
                 }
+
+                if(type == message::TEAMASSIGNMENT)
+                {
+                    int32_t assigned_id = fetch.get<int32_t>();
+                    int32_t found_team = fetch.get<int32_t>();
+
+                    int32_t found_end = fetch.get<decltype(canary_end)>();
+
+                    if(found_end != canary_end)
+                    {
+                        printf("err in teamassign\n");
+                    }
+                }
+
+                if(type == message::PING_DATA)
+                {
+                    int num = fetch.get<int32_t>();
+
+                    for(int i=0; i<num; i++)
+                    {
+                        int pid = fetch.get<int32_t>();
+                        float ping = fetch.get<float>();
+                    }
+
+                    int32_t found_end = fetch.get<decltype(canary_end)>();
+
+                    if(found_end != canary_end)
+                    {
+                        printf("err in PING_DATA\n");
+                    }
+                }
+
+                if(type == message::PING)
+                {
+                    fetch.get<decltype(canary_end)>();
+                }
             }
         }
-    }
-
-    void join_hardcoded()
-    {
-        join_game("127.0.0.1", GAMESERVER_PORT);
     }
 
     void forward_data(int player_id, int object_id, int system_network_id, const byte_vector& vec)
     {
         network_variable nv(player_id, object_id, system_network_id);
 
+        uint32_t data_size = sizeof(nv) + vec.ptr.size();
+
         byte_vector cv;
         cv.push_back(canary_start);
         cv.push_back(message::FORWARDING);
+        cv.push_back(data_size);
         cv.push_back<network_variable>(nv);
         cv.push_vector(vec);
         cv.push_back(canary_end);
@@ -147,12 +207,12 @@ struct network_state
         return next_object_id++;
     }
 
-    template<typename T>
-    void check_create_network_entity(T& generic_manager)
+    template<typename manager_type, typename real_type>
+    void check_create_network_entity(manager_type& generic_manager)
     {
         for(auto& i : available_data)
         {
-            network_variable& var = i.first;
+            network_variable& var = std::get<0>(i);
 
             if(var.system_network_id != generic_manager.system_network_id)
                 continue;
@@ -165,17 +225,41 @@ struct network_state
 
             ///make new slave entity here!
 
-            generic_manager.make_new();
+            ///when reading this, ignore the template keyword
+            ///its because this is a dependent type
+            auto new_entity = generic_manager.template make_new<real_type>();
+
+            real_type* found_entity = dynamic_cast<real_type*>(new_entity);
+
+            //real_type* found_entity = dynamic_cast<real_type*>(generic_manager.make_new<real_type>());
+
+            found_entity->object_id = var.object_id;
+            found_entity->owning_id = var.player_id;
+
+            found_entity->process_recv(*this);
+        }
+    }
+
+    void tick_cleanup()
+    {
+        for(int i=0; i<available_data.size(); i++)
+        {
+            if(std::get<2>(available_data[i]))
+            {
+                available_data.erase(available_data.begin() + i);
+                i--;
+                continue;
+            }
         }
     }
 };
 
-struct network_serialisable
+struct network_serialisable : virtual base_class
 {
     int owning_id = -1;
 
     virtual byte_vector serialise_network() {return byte_vector();};
-    virtual deserialise_network(byte_fetch& fetch) {};
+    virtual void deserialise_network(byte_fetch& fetch) {};
 
     //virtual void update(network_state& state) = 0;
     virtual void process_recv(network_state& state) = 0;
@@ -183,13 +267,11 @@ struct network_serialisable
 
 struct networkable_host : virtual network_serialisable
 {
-    int object_id = -1;
-
     network_state& ncapture;
 
     networkable_host(network_state& ns) : ncapture(ns)
     {
-        object_id = ns.get_next_object_id();
+        //object_id = ns.get_next_object_id();
         owning_id = ns.my_id;
     }
 
@@ -208,11 +290,13 @@ struct networkable_host : virtual network_serialisable
 
         for(auto& i : ns.available_data)
         {
-            network_variable& var = i.first;
+            network_variable& var = std::get<0>(i);
 
             if(var.player_id == owning_id && var.object_id == object_id)
             {
-                deserialise_network(i.second);
+                deserialise_network(std::get<1>(i));
+
+                std::get<2>(i) = true;
             }
         }
     }
@@ -222,8 +306,6 @@ struct networkable_host : virtual network_serialisable
 struct networkable_client : virtual network_serialisable
 {
     bool should_update = false;
-
-    int object_id = -1;
 
     ///if we have properties we need to network, but not movement
     ///eg we don't own this
@@ -241,11 +323,13 @@ struct networkable_client : virtual network_serialisable
     {
         for(auto& i : ns.available_data)
         {
-            network_variable& var = i.first;
+            network_variable& var = std::get<0>(i);
 
             if(var.player_id == owning_id && var.object_id == object_id)
             {
-                deserialise_network(i.second);
+                deserialise_network(std::get<1>(i));
+
+                std::get<2>(i) = true;
             }
         }
     }

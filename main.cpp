@@ -11,15 +11,15 @@
 #include "camera.hpp"
 #include "state.hpp"
 
-#include "networking.hpp"
-
-bool suppress_mouse = false;
-
 struct base_class
 {
     bool should_cleanup = false;
     int16_t object_id = -1;
 };
+
+#include "networking.hpp"
+
+bool suppress_mouse = false;
 
 struct renderable
 {
@@ -728,6 +728,8 @@ void load(const std::string& file, physics_barrier_manager& physics_barrier_mana
 
 int main()
 {
+    networking_init();
+
     sf::ContextSettings context(0, 0, 8);
 
     sf::RenderWindow win;
@@ -875,6 +877,13 @@ int main()
         {
             cam.set_pos(test->pos);
         }
+
+        net_state.tick_cleanup();
+        net_state.tick_join_game(dt_s);
+        net_state.tick();
+
+        character_manage.tick_create_networking<character_manager, character>(net_state);
+        character_manage.update_entities(net_state);
 
         cam.update_camera();
 
