@@ -12,6 +12,13 @@ struct character_base : virtual renderable, virtual damageable, virtual collidea
     vec2f pos;
 
     virtual void tick(float dt_s, state& st) {};
+
+    virtual void set_owner(int id)
+    {
+        network_serialisable::set_owner(id);
+
+        team = id;
+    }
 };
 
 ///slave network character

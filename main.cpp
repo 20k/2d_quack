@@ -165,27 +165,26 @@ struct collideable : virtual base_class
     }
 };
 
-struct projectile : virtual renderable, virtual collideable, virtual base_class
+struct projectile_base : virtual renderable, virtual collideable, virtual base_class, virtual network_serialisable
 {
-    int type = 0;
     vec2f pos;
-    vec2f dir;
-    float speed = 1.f;
+    int type = 0;
     float rad = 2.f;
 
-    projectile(int team) : collideable(team, collide::RAD)
+    virtual void tick(float dt_s, state& st) {}
+
+    projectile_base(int team) : collideable(team, collide::RAD)
     {
 
     }
 
-    virtual void on_collide(collideable* other) override {should_cleanup = true;}
+    projectile_base() : collideable(-1, collide::RAD) {}
 
-    void tick(float dt_s, state& st)
+    virtual void set_owner(int id)
     {
-        pos = pos + dir * dt_s;
+        network_serialisable::set_owner(id);
 
-        set_collision_pos(pos);
-        collision_dim = {rad*2, rad*2};
+        team = id;
     }
 
     void render(sf::RenderWindow& win) override
@@ -200,10 +199,55 @@ struct projectile : virtual renderable, virtual collideable, virtual base_class
         win.draw(shape);
     }
 
-    virtual ~projectile()
+    virtual byte_vector serialise_network() override
     {
+        byte_vector vec;
 
+        vec.push_back<vec2f>(pos);
+
+        return vec;
     }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        vec2f fpos = fetch.get<vec2f>();
+
+        int found_canary = fetch.get<decltype(canary_end)>();
+
+        if(found_canary == canary_end)
+            pos = fpos;
+    }
+
+    virtual ~projectile_base() {}
+};
+
+struct projectile : virtual projectile_base, virtual networkable_client
+{
+    projectile(int team) : projectile_base(team), collideable(team, collide::RAD) {}
+
+    projectile() : collideable(-1, collide::RAD) {}
+
+    virtual ~projectile(){}
+};
+
+struct host_projectile : virtual projectile_base, virtual networkable_host
+{
+    vec2f dir;
+    float speed = 1.f;
+
+    host_projectile(int team, network_state& ns) : projectile_base(team), collideable(team, collide::RAD), networkable_host(ns) {}
+
+    virtual void on_collide(collideable* other) override {should_cleanup = true;}
+
+    void tick(float dt_s, state& st) override
+    {
+        pos = pos + dir * dt_s;
+
+        set_collision_pos(pos);
+        collision_dim = {rad*2, rad*2};
+    }
+
+    virtual ~host_projectile() {}
 };
 
 #include "managers.hpp"
@@ -627,7 +671,7 @@ struct debug_controls
 
             vec2f to_mouse = mpos - ppos;
 
-            projectile* p = st.projectile_manage.make_new<projectile>(player->team);
+            host_projectile* p = dynamic_cast<host_projectile*>(st.projectile_manage.make_new<host_projectile>(player->team, st.net_state));
             p->pos = ppos;
             p->init_collision_pos(p->pos);
             p->dir = to_mouse.norm() * 1000.f;
@@ -883,8 +927,8 @@ int main()
         net_state.tick_join_game(dt_s);
         net_state.tick();
 
-        character_manage.tick_create_networking<character_manager, character>(net_state);
-        character_manage.update_network_entities(net_state);
+        projectile_manage.tick_all_networking<projectile_manager, projectile>(net_state);
+        character_manage.tick_all_networking<character_manager, character>(net_state);
 
         cam.update_camera();
 

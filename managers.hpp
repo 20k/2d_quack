@@ -131,6 +131,14 @@ struct network_manager_base : virtual object_manager<T>
         }
     }
 
+    template<typename manager_type, typename real_type>
+    void tick_all_networking(network_state& ns)
+    {
+        tick_create_networking<manager_type, real_type>(ns);
+
+        update_network_entities(ns);
+    }
+
     virtual ~network_manager_base(){}
 };
 
@@ -175,11 +183,11 @@ struct collideable_manager_base : virtual object_manager<T>
     }
 };
 
-struct projectile_manager : virtual renderable_manager_base<projectile>, virtual collideable_manager_base<projectile>
+struct projectile_manager : virtual renderable_manager_base<projectile_base>, virtual collideable_manager_base<projectile_base>, virtual network_manager_base<projectile_base>
 {
     void tick(float dt_s, state& st)
     {
-        for(projectile* p : objs)
+        for(projectile_base* p : objs)
         {
             p->tick(dt_s, st);
         }

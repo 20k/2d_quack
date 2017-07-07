@@ -1,7 +1,7 @@
 #ifndef NETWORKING_HPP_INCLUDED
 #define NETWORKING_HPP_INCLUDED
 
-#include "../2d_quacku_servers/master_server/network_messages.hpp"
+#include "2d_quacku_servers/master_server/network_messages.hpp"
 
 udp_sock join_game(const std::string& address, const std::string& port)
 {
@@ -246,7 +246,7 @@ struct network_state
             //real_type* found_entity = dynamic_cast<real_type*>(generic_manager.make_new<real_type>());
 
             found_entity->object_id = var.object_id;
-            found_entity->owning_id = var.player_id;
+            found_entity->set_owner(var.player_id);
             found_entity->ownership_class = var.player_id;
         }
     }
@@ -274,22 +274,25 @@ struct network_serialisable : virtual base_class
 
     //virtual void update(network_state& state) = 0;
     virtual void process_recv(network_state& state) = 0;
+
+    virtual void set_owner(int id)
+    {
+        owning_id = id;
+    }
 };
 
 struct networkable_host : virtual network_serialisable
 {
-    network_state& ncapture;
-
-    networkable_host(network_state& ns) : ncapture(ns)
+    networkable_host(network_state& ns)
     {
         //object_id = ns.get_next_object_id();
-        owning_id = ns.my_id;
+        set_owner(ns.my_id);
     }
 
     ///send serialisable properties across network
     virtual void update(network_state& ns, int system_network_id)
     {
-        owning_id = ns.my_id;
+        set_owner(ns.my_id);
 
         ns.forward_data(owning_id, object_id, system_network_id, serialise_network());
     }
@@ -297,7 +300,7 @@ struct networkable_host : virtual network_serialisable
     ///don't need system id here, only for creating new networkable clients
     virtual void process_recv(network_state& ns)
     {
-        owning_id = ns.my_id;
+        set_owner(ns.my_id);
 
         for(auto& i : ns.available_data)
         {
