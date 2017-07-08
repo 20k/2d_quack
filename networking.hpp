@@ -327,7 +327,7 @@ struct networkable_host : virtual network_serialisable
 
                 if(canary != canary_end)
                 {
-                    printf("error host process recv");
+                    printf("error host process recv\n");
                 }
 
                 std::get<2>(i) = true;

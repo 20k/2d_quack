@@ -22,6 +22,100 @@ struct base_class
 
 bool suppress_mouse = false;
 
+struct damageable_base : virtual network_serialisable
+{
+    float hp = 1.f;
+    float max_hp = 1.f;
+
+    float pending_network_damage = 0.f;
+
+    virtual void damage(float amount)
+    {
+        pending_network_damage += amount;
+
+        hp -= amount;
+
+        hp = std::max(hp, 0.f);
+    }
+
+    float get_hp()
+    {
+        return hp;
+    }
+
+    void reset_hp()
+    {
+        hp = max_hp;
+    }
+
+    bool dead()
+    {
+        return hp <= 0.f;
+    }
+
+    virtual ~damageable_base()
+    {
+
+    }
+
+    virtual byte_vector serialise_network() override
+    {
+        byte_vector vec;
+        vec.push_back<float>(pending_network_damage);
+        vec.push_back<int32_t>(0);
+
+        pending_network_damage = 0.f;
+
+        return vec;
+    }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        //float pending_damage = fetch.get<float>();
+
+        float found_data = fetch.get<float>();
+
+        int32_t type = fetch.get<int32_t>();
+
+        if(type == 0)
+            hp -= found_data;
+        if(type == 1)
+            hp = found_data;
+    }
+};
+
+struct damageable_client : virtual damageable_base, virtual networkable_client
+{
+    virtual void damage(float amount) override
+    {
+        damageable_base::damage(amount);
+
+        should_update = true;
+    }
+};
+
+struct damageable_host : virtual damageable_base, virtual networkable_host
+{
+    damageable_host(network_state& ns) : networkable_host(ns) {}
+
+    virtual byte_vector serialise_network() override
+    {
+        byte_vector ret;
+        ret.push_back<float>(hp);
+        ret.push_back<int32_t>(1);
+
+        return ret;
+    }
+
+    /*virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        ///received from a client
+        float pending_damage = fetch.get<float>();
+
+        damage(pending_damage);
+    }*/
+};
+
 struct renderable
 {
     sf::Image img;
@@ -175,7 +269,7 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
 
     projectile_base(int team) : collideable(team, collide::RAD)
     {
-
+        collision_dim = {rad*2, rad*2};
     }
 
     projectile_base() : collideable(-1, collide::RAD) {}
@@ -209,14 +303,6 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
         return vec;
     }
 
-    virtual void deserialise_network(byte_fetch& fetch) override
-    {
-        vec2f fpos = fetch.get<vec2f>();
-        should_cleanup = fetch.get<int32_t>();
-
-        pos = fpos;
-    }
-
     virtual ~projectile_base() {}
 };
 
@@ -232,7 +318,10 @@ struct projectile : virtual projectile_base, virtual networkable_client
 
     virtual void deserialise_network(byte_fetch& fetch) override
     {
-        projectile_base::deserialise_network(fetch);
+        vec2f fpos = fetch.get<vec2f>();
+        should_cleanup = fetch.get<int32_t>();
+
+        pos = fpos;
 
         if(!have_pos)
         {
@@ -252,14 +341,31 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
 
     host_projectile(int team, network_state& ns) : projectile_base(team), collideable(team, collide::RAD), networkable_host(ns) {}
 
-    virtual void on_collide(collideable* other) override {should_cleanup = true;}
+    virtual void on_collide(collideable* other) override
+    {
+        should_cleanup = true;
+
+        if(dynamic_cast<damageable_base*>(other) != nullptr)
+        {
+            dynamic_cast<damageable_base*>(other)->damage(0.6);
+
+            printf("COLLIDE\n");
+        }
+    }
 
     void tick(float dt_s, state& st) override
     {
         pos = pos + dir * dt_s;
 
         set_collision_pos(pos);
-        collision_dim = {rad*2, rad*2};
+    }
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        vec2f fpos = fetch.get<vec2f>();
+        should_cleanup = fetch.get<int32_t>();
+
+        //pos = fpos;
     }
 
     virtual ~host_projectile() {}
@@ -286,93 +392,6 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
         }
     }
 };*/
-
-struct damageable_base : virtual network_serialisable
-{
-    float hp = 1.f;
-    float max_hp = 1.f;
-
-    float pending_network_damage = 0.f;
-
-    virtual void damage(float amount)
-    {
-        pending_network_damage += amount;
-
-        hp -= amount;
-
-        hp = std::max(hp, 0.f);
-    }
-
-    float get_hp()
-    {
-        return hp;
-    }
-
-    void reset_hp()
-    {
-        hp = max_hp;
-    }
-
-    bool dead()
-    {
-        return hp <= 0.f;
-    }
-
-    virtual ~damageable_base()
-    {
-
-    }
-};
-
-struct damageable_client : virtual damageable_base, virtual networkable_client
-{
-    virtual void damage(float amount)
-    {
-        damageable_base::damage(amount);
-
-        should_update = true;
-    }
-
-    virtual byte_vector serialise_network() override
-    {
-        pending_network_damage = 0.f;
-
-        byte_vector vec;
-        vec.push_back<float>(pending_network_damage);
-
-        return vec;
-    }
-
-    virtual void deserialise_network(byte_fetch& fetch) override
-    {
-        //float pending_damage = fetch.get<float>();
-
-        float found_hp = fetch.get<float>();
-
-        hp = found_hp;
-    }
-};
-
-struct damageable_host : virtual damageable_base, virtual networkable_host
-{
-    damageable_host(network_state& ns) : networkable_host(ns) {}
-
-    virtual byte_vector serialise_network() override
-    {
-        byte_vector ret;
-        ret.push_back<float>(hp);
-
-        return ret;
-    }
-
-    virtual void deserialise_network(byte_fetch& fetch) override
-    {
-        ///received from a client
-        float pending_damage = fetch.get<float>();
-
-        damage(pending_damage);
-    }
-};
 
 struct physics_barrier : virtual renderable, virtual collideable, virtual base_class
 {
@@ -739,8 +758,6 @@ struct debug_controls
             vec2f ppos = player->pos;
 
             vec2f to_mouse = mpos - ppos;
-
-            printf("pteam %i\n", player->team);
 
             host_projectile* p = dynamic_cast<host_projectile*>(st.projectile_manage.make_new<host_projectile>(player->team, st.net_state));
             p->pos = ppos;

@@ -8,7 +8,10 @@ struct projectile;
 ///do damage properly with pending damage in damageable
 struct character_base : virtual renderable, virtual damageable_base, virtual collideable, virtual base_class, virtual network_serialisable
 {
-    character_base(int team) : collideable(team, collide::RAD) {}
+    character_base(int team) : collideable(team, collide::RAD)
+    {
+        collision_dim = {tex.getSize().x, tex.getSize().y};
+    }
 
     vec2f pos;
 
@@ -64,6 +67,9 @@ struct character : virtual character_base, virtual networkable_client, virtual d
         //if(!spawned)
         //    return;
 
+        if(hp < 0)
+            return;
+
         renderable::render(win, pos);
     }
 };
@@ -101,13 +107,13 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     }
 
-    void on_collide(collideable* other)
+    /*void on_collide(collideable* other)
     {
         if(dynamic_cast<projectile*>(other) != nullptr)
         {
             damage(0.6f);
         }
-    }
+    }*/
 
     void render(sf::RenderWindow& win) override
     {
@@ -396,7 +402,6 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         //last_collision_pos = collision_pos;
         //collision_pos = pos;
         set_collision_pos(pos);
-        collision_dim = {tex.getSize().x, tex.getSize().y};
     }
 
     void do_gravity(vec2f dir)
@@ -454,7 +459,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
     {
         vec2f fpos = fetch.get<vec2f>();
 
-        pos = fpos;
+        //pos = fpos;
 
         damageable_host::deserialise_network(fetch);
     }
