@@ -67,6 +67,11 @@ struct network_state
     sockaddr_storage store;
     bool have_sock = false;
 
+    bool connected()
+    {
+        return (my_id != -1) && (sock.valid());
+    }
+
     float timeout_max = 5.f;
     float timeout = timeout_max;
 
@@ -292,6 +297,9 @@ struct networkable_host : virtual network_serialisable
     ///send serialisable properties across network
     virtual void update(network_state& ns, int system_network_id)
     {
+        if(!ns.connected())
+            return;
+
         set_owner(ns.my_id);
 
         ns.forward_data(owning_id, object_id, system_network_id, serialise_network());
@@ -300,6 +308,9 @@ struct networkable_host : virtual network_serialisable
     ///don't need system id here, only for creating new networkable clients
     virtual void process_recv(network_state& ns)
     {
+        if(!ns.connected())
+            return;
+
         set_owner(ns.my_id);
 
         for(auto& i : ns.available_data)
@@ -334,6 +345,9 @@ struct networkable_client : virtual network_serialisable
     ///eg we don't own this
     virtual void update(network_state& ns, int system_network_id)
     {
+        if(!ns.connected())
+            return;
+
         if(!should_update)
             return;
 
@@ -344,6 +358,9 @@ struct networkable_client : virtual network_serialisable
 
     virtual void process_recv(network_state& ns)
     {
+        if(!ns.connected())
+            return;
+
         for(auto& i : ns.available_data)
         {
             network_variable& var = std::get<0>(i);

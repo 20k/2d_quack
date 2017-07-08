@@ -180,7 +180,7 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
 
     projectile_base() : collideable(-1, collide::RAD) {}
 
-    virtual void set_owner(int id)
+    virtual void set_owner(int id) override
     {
         network_serialisable::set_owner(id);
 
@@ -222,11 +222,27 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
 
 struct projectile : virtual projectile_base, virtual networkable_client
 {
+    bool have_pos = false;
+
     projectile(int team) : projectile_base(team), collideable(team, collide::RAD) {}
 
     projectile() : collideable(-1, collide::RAD) {}
 
     virtual ~projectile(){}
+
+    virtual void deserialise_network(byte_fetch& fetch) override
+    {
+        projectile_base::deserialise_network(fetch);
+
+        if(!have_pos)
+        {
+            collideable::init_collision_pos(pos);
+
+            have_pos = true;
+        }
+
+        set_collision_pos(pos);
+    }
 };
 
 struct host_projectile : virtual projectile_base, virtual networkable_host
@@ -724,6 +740,8 @@ struct debug_controls
 
             vec2f to_mouse = mpos - ppos;
 
+            printf("pteam %i\n", player->team);
+
             host_projectile* p = dynamic_cast<host_projectile*>(st.projectile_manage.make_new<host_projectile>(player->team, st.net_state));
             p->pos = ppos;
             p->init_collision_pos(p->pos);
@@ -858,7 +876,8 @@ int main()
     st.renderable_manage.system_network_id = 3;
     st.projectile_manage.system_network_id = 4;
 
-    player_character* test = dynamic_cast<player_character*>(character_manage.make_new<player_character>(0, st.net_state));
+    ///-2 team bit of a hack, objects default to -1
+    player_character* test = dynamic_cast<player_character*>(character_manage.make_new<player_character>(-2, st.net_state));
 
     sf::Clock clk;
 

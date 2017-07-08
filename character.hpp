@@ -25,12 +25,16 @@ struct character_base : virtual renderable, virtual damageable_base, virtual col
 ///slave network character
 struct character : virtual character_base, virtual networkable_client, virtual damageable_client
 {
+    bool have_pos = false;
+
     character() : collideable(-1, collide::RAD), character_base(-1) {}
 
     virtual byte_vector serialise_network() override
     {
         byte_vector vec;
         vec.push_back(pos);
+
+        vec.push_vector(damageable_client::serialise_network());
 
         //vec.push_back(damageable_client)
 
@@ -42,6 +46,17 @@ struct character : virtual character_base, virtual networkable_client, virtual d
         vec2f fpos = fetch.get<vec2f>();
 
         pos = fpos;
+
+        damageable_client::deserialise_network(fetch);
+
+        if(!have_pos)
+        {
+            collideable::init_collision_pos(pos);
+
+            have_pos = true;
+        }
+
+        set_collision_pos(pos);
     }
 
     void render(sf::RenderWindow& win) override
@@ -430,6 +445,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         vec.push_back<vec2f>(pos);
 
+        vec.push_vector(damageable_host::serialise_network());
+
         return vec;
     }
 
@@ -438,6 +455,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         vec2f fpos = fetch.get<vec2f>();
 
         pos = fpos;
+
+        damageable_host::deserialise_network(fetch);
     }
 };
 
