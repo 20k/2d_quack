@@ -23,6 +23,11 @@ struct character_base : virtual renderable, virtual damageable_base, virtual col
 
         team = id;
     }
+
+    virtual bool can_collide() override
+    {
+        return hp > 0.f;
+    }
 };
 
 ///slave network character

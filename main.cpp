@@ -190,6 +190,8 @@ struct collideable : virtual base_class
         type = _type;
     }
 
+    virtual bool can_collide() {return true;}
+
     virtual void on_collide(collideable* other) {}
 
     virtual bool intersects(collideable* other)
@@ -348,8 +350,6 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
         if(dynamic_cast<damageable_base*>(other) != nullptr)
         {
             dynamic_cast<damageable_base*>(other)->damage(0.6);
-
-            printf("COLLIDE\n");
         }
     }
 
