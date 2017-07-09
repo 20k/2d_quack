@@ -417,6 +417,7 @@ struct debug_controls
             inherited = {0,0};
             #endif // VELOCITY_PARENT_INHERIT*/
 
+            ///still not sure on this
             inherited = projection(inherited, to_mouse.norm());
 
             p->dir = to_mouse.norm() * 500.f + inherited;

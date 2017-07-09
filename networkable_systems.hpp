@@ -149,19 +149,16 @@ struct projectile_base : virtual renderable, virtual collideable, virtual base_c
 
     }
 
-    virtual void on_cleanup(state& st);
-
     virtual ~projectile_base() {}
 };
 
-
-struct explosion_projectile : virtual projectile_base, virtual networkable_none
+struct explosion_projectile_base : virtual projectile_base, virtual networkable_none
 {
     std::map<collideable*, bool> hit;
     float alive_time = 0.f;
     float alive_time_max = 0.25f;
 
-    explosion_projectile() : projectile_base(-3), collideable(-3, collide::RAD)
+    explosion_projectile_base() : projectile_base(-3), collideable(-3, collide::RAD)
     {
         rad = 10.f;
 
@@ -185,6 +182,28 @@ struct explosion_projectile : virtual projectile_base, virtual networkable_none
         return byte_vector();
     }
 
+
+    virtual void on_cleanup(state& st) {}
+
+    virtual void process_recv(network_state& st)
+    {
+
+    }
+
+    virtual ~explosion_projectile_base(){}
+};
+
+struct explosion_projectile_client : virtual explosion_projectile_base
+{
+    explosion_projectile_client() : explosion_projectile_base(), collideable(-3, collide::RAD) {}
+
+    virtual ~explosion_projectile_client(){}
+};
+
+struct explosion_projectile_host : virtual explosion_projectile_base
+{
+    explosion_projectile_host() : explosion_projectile_base(),collideable(-3, collide::RAD) {}
+
     virtual void on_collide(state& st, collideable* other)
     {
         if(hit[other])
@@ -198,14 +217,7 @@ struct explosion_projectile : virtual projectile_base, virtual networkable_none
         }
     }
 
-    virtual void on_cleanup(state& st) {}
-
-    virtual void process_recv(network_state& st)
-    {
-
-    }
-
-    virtual ~explosion_projectile(){}
+    virtual ~explosion_projectile_host(){}
 };
 
 struct projectile : virtual projectile_base, virtual networkable_client
@@ -215,8 +227,6 @@ struct projectile : virtual projectile_base, virtual networkable_client
     projectile(int team) : projectile_base(team), collideable(team, collide::RAD) {}
 
     projectile() : collideable(-1, collide::RAD) {}
-
-    virtual ~projectile(){}
 
     virtual void deserialise_network(byte_fetch& fetch) override
     {
@@ -234,6 +244,10 @@ struct projectile : virtual projectile_base, virtual networkable_client
 
         set_collision_pos(pos);
     }
+
+    virtual void on_cleanup(state& st) override;
+
+    virtual ~projectile(){}
 };
 
 struct host_projectile : virtual projectile_base, virtual networkable_host
@@ -273,6 +287,8 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
 
         //pos = fpos;
     }
+
+    virtual void on_cleanup(state& st) override;
 
     virtual ~host_projectile() {}
 };
