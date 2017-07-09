@@ -355,7 +355,7 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
 
     void tick(float dt_s, state& st) override
     {
-        pos = pos + dir * dt_s;
+        pos = pos + dir * dt_s * speed;
 
         set_collision_pos(pos);
     }
@@ -762,7 +762,15 @@ struct debug_controls
             host_projectile* p = dynamic_cast<host_projectile*>(st.projectile_manage.make_new<host_projectile>(player->team, st.net_state));
             p->pos = ppos;
             p->init_collision_pos(p->pos);
-            p->dir = to_mouse.norm() * 1000.f;
+
+            vec2f inherited = ((player->pos - player->last_pos) / st.dt_s);
+
+            #ifndef VELOCITY_PARENT_INHERIT
+            inherited = {0,0};
+            #endif // VELOCITY_PARENT_INHERIT
+
+            p->dir = to_mouse.norm() * 1000.f + inherited;
+            //p->speed = 1000 + ;
         }
     }
 
@@ -913,6 +921,8 @@ int main()
 
         float dt_s = (clk.restart().asMicroseconds() / 1000.) / 1000.f;
 
+        st.dt_s = dt_s;
+
         sf::Event event;
 
         float scrollwheel_delta;
@@ -969,9 +979,6 @@ int main()
 
         //test->velocity += move_dir * mult;
 
-        if(win.hasFocus())
-            controls.tick(st, test);
-
         if(controls.controls_state == 0)
         {
             ImGui::Begin("Save/Load");
@@ -1006,6 +1013,8 @@ int main()
             }
         }
 
+        if(win.hasFocus())
+            controls.tick(st, test);
 
         if(controls.controls_state == 1)
         {

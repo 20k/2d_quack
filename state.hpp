@@ -17,6 +17,7 @@ struct state
     projectile_manager& projectile_manage;
     camera& cam;
     network_state& net_state;
+    float dt_s = 0.1f;
 
     state(character_manager& pcharacter_manage,
           physics_barrier_manager& pphysics_barrier_manage,
