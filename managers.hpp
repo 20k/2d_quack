@@ -163,7 +163,7 @@ template<typename T>
 struct collideable_manager_base : virtual object_manager<T>
 {
     template<typename U>
-    void check_collisions(collideable_manager_base<U>& other)
+    void check_collisions(state& st, collideable_manager_base<U>& other)
     {
         for(int i=0; i<object_manager<T>::objs.size(); i++)
         {
@@ -183,8 +183,8 @@ struct collideable_manager_base : virtual object_manager<T>
 
                 if((my_t->team != their_t->team) && my_t->intersects(their_t))
                 {
-                    my_t->on_collide(their_t);
-                    their_t->on_collide(my_t);
+                    my_t->on_collide(st, their_t);
+                    their_t->on_collide(st, my_t);
                 }
             }
         }

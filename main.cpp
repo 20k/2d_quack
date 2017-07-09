@@ -192,7 +192,7 @@ struct collideable : virtual base_class
 
     virtual bool can_collide() {return true;}
 
-    virtual void on_collide(collideable* other) {}
+    virtual void on_collide(state& st, collideable* other) {}
 
     virtual bool intersects(collideable* other)
     {
@@ -261,6 +261,8 @@ struct collideable : virtual base_class
     }
 };
 
+///Ok. On any projectile collision, client or host, we need to spawn the explosion graphic
+///Only host wants to do collision detection
 struct projectile_base : virtual renderable, virtual collideable, virtual base_class, virtual network_serialisable
 {
     vec2f pos;
@@ -343,7 +345,7 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
 
     host_projectile(int team, network_state& ns) : projectile_base(team), collideable(team, collide::RAD), networkable_host(ns) {}
 
-    virtual void on_collide(collideable* other) override
+    virtual void on_collide(state& st, collideable* other) override
     {
         should_cleanup = true;
 
@@ -1025,8 +1027,8 @@ int main()
         net_state.tick_join_game(dt_s);
         net_state.tick();
 
-        projectile_manage.check_collisions(character_manage);
-        projectile_manage.check_collisions(physics_barrier_manage);
+        projectile_manage.check_collisions(st, character_manage);
+        projectile_manage.check_collisions(st, physics_barrier_manage);
 
         projectile_manage.tick_all_networking<projectile_manager, projectile>(net_state);
         character_manage.tick_all_networking<character_manager, character>(net_state);
