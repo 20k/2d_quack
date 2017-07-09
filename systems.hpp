@@ -4,6 +4,8 @@
 #include <SFML/Graphics.hpp>
 #include <vec/vec.hpp>
 
+#define GRAVITY_STRENGTH 1600.f
+
 struct state;
 
 struct base_class

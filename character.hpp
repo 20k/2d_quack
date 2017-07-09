@@ -411,7 +411,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     void do_gravity(vec2f dir)
     {
-        acceleration += dir * 1600.f;
+        acceleration += dir * GRAVITY_STRENGTH;
     }
 
     void set_movement(vec2f dir)

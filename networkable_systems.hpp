@@ -257,6 +257,10 @@ struct host_projectile : virtual projectile_base, virtual networkable_host
 
     void tick(float dt_s, state& st) override
     {
+        #ifdef PROJECTILE_GRAVITY
+        dir += (vec2f){0, 1} * GRAVITY_STRENGTH * dt_s;
+        #endif
+
         pos = pos + dir * dt_s * speed;
 
         set_collision_pos(pos);

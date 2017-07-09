@@ -412,11 +412,14 @@ struct debug_controls
 
             vec2f inherited = ((player->pos - player->last_pos) / st.dt_s);
 
+            /*//#define VELOCITY_PARENT_INHERIT
             #ifndef VELOCITY_PARENT_INHERIT
             inherited = {0,0};
-            #endif // VELOCITY_PARENT_INHERIT
+            #endif // VELOCITY_PARENT_INHERIT*/
 
-            p->dir = to_mouse.norm() * 1000.f + inherited;
+            inherited = projection(inherited, to_mouse.norm());
+
+            p->dir = to_mouse.norm() * 500.f + inherited;
             //p->speed = 1000 + ;
         }
     }
