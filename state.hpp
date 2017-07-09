@@ -7,6 +7,7 @@ struct game_world_manager;
 struct renderable_manager;
 struct projectile_manager;
 struct network_state;
+struct camera;
 
 struct state
 {

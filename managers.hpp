@@ -1,12 +1,19 @@
 #ifndef MANAGERS_HPP_INCLUDED
 #define MANAGERS_HPP_INCLUDED
 
+#include <stdint.h>
+#include <vector>
+#include "networking.hpp"
+#include "networkable_systems.hpp"
+
 struct renderable;
 struct projectile;
+struct state;
+struct network_state;
 
 ///shared state
 ///every object has a unique id globally
-uint16_t o_id = 0;
+extern uint16_t o_id;
 
 template<typename T>
 struct object_manager
@@ -69,12 +76,14 @@ struct object_manager
         objs.clear();
     }
 
-    void cleanup()
+    void cleanup(state& st)
     {
         for(int i=0; i<objs.size(); i++)
         {
             if(objs[i]->should_cleanup)
             {
+                objs[i]->on_cleanup(st);
+
                 objs.erase(objs.begin() + i);
                 i--;
 

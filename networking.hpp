@@ -3,6 +3,9 @@
 
 #include "2d_quacku_servers/master_server/network_messages.hpp"
 
+#include "systems.hpp"
+
+inline
 udp_sock join_game(const std::string& address, const std::string& port)
 {
     udp_sock sock = udp_connect(address, port);
@@ -284,6 +287,11 @@ struct network_serialisable : virtual base_class
     {
         owning_id = id;
     }
+};
+
+struct networkable_none : virtual network_serialisable
+{
+    virtual void process_recv(network_state& state) {}
 };
 
 struct networkable_host : virtual network_serialisable
