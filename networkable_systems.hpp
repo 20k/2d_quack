@@ -156,7 +156,7 @@ struct explosion_projectile_base : virtual projectile_base, virtual networkable_
 {
     std::map<collideable*, bool> hit;
     float alive_time = 0.f;
-    float alive_time_max = 0.25f;
+    float alive_time_max = 0.15f;
 
     explosion_projectile_base() : projectile_base(-3), collideable(-3, collide::RAD)
     {

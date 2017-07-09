@@ -420,7 +420,7 @@ struct debug_controls
             ///still not sure on this
             inherited = projection(inherited, to_mouse.norm());
 
-            p->dir = to_mouse.norm() * 500.f + inherited;
+            p->dir = to_mouse.norm() * 750.f + inherited;
             //p->speed = 1000 + ;
         }
     }
@@ -554,6 +554,9 @@ int main()
 
     ///-2 team bit of a hack, objects default to -1
     player_character* test = dynamic_cast<player_character*>(character_manage.make_new<player_character>(-2, st.net_state));
+
+    load("file.mapfile", physics_barrier_manage, game_world_manage, renderable_manage);
+    renderable_manage.add(test);
 
     sf::Clock clk;
 
