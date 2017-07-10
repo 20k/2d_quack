@@ -82,7 +82,7 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
     {
         vec2f line = (p2 - p1).norm();
 
-        vec2f normal = line.rot(M_PI/2);
+        vec2f normal = perpendicular(line);
 
         float res = dot(normal.norm(), (pos - (p1 + p2)/2.f).norm());
 
@@ -96,7 +96,7 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
     {
         vec2f line = (pos_2 - pos_1).norm();
 
-        vec2f normal = line.rot(M_PI/2);
+        vec2f normal = perpendicular(line);
 
         float res = dot(normal.norm(), (pos - (pos_1 + pos_2)/2.f).norm());
 
@@ -106,23 +106,64 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return -1;
     }
 
+    float fside(vec2f pos)
+    {
+        vec2f line = (p2 - p1).norm();
+
+        vec2f normal = perpendicular(line);
+
+        float res = dot(normal.norm(), (pos - (p1 + p2)/2.f).norm());
+
+        return res;
+    }
+
+    static float fside(vec2f pos, vec2f pos_1, vec2f pos_2)
+    {
+        vec2f line = (pos_2 - pos_1).norm();
+
+        vec2f normal = perpendicular(line);
+
+        float res = dot(normal.norm(), (pos - (pos_1 + pos_2)/2.f).norm());
+
+        return res;
+    }
+
+    bool opposite(float f1, float f2)
+    {
+        if(signum(f1) != signum(f2))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     bool crosses(vec2f pos, vec2f next_pos)
     {
-        int s1 = side(pos);
-        int s2 = side(next_pos);
+        float s1 = fside(pos);
+        float s2 = fside(next_pos);
 
         vec2f normal = get_normal();
 
         ///nominally
-        if(s1 != s2)
+        //if(s1 != s2)
+        if(opposite(s1, s2))
         {
             vec2f n1 = p1 + normal;
             vec2f n2 = p2 + normal;
 
-            int sn1 = physics_barrier::side(pos, p1, n1);
-            int sn2 = physics_barrier::side(pos, p2, n2);
+            float sn1 = physics_barrier::fside(pos, p1, n1);
+            float sn2 = physics_barrier::fside(pos, p2, n2);
 
-            if(sn1 != sn2)
+            float nn1 = physics_barrier::fside(next_pos, p1, n1);
+            float nn2 = physics_barrier::fside(next_pos, p2, n2);
+
+            //printf("cross %f %f\n", sn1, sn2);
+            //std::cout << pos << " nx " << next_pos << " " << p1 << " " << p2 << std::endl;
+
+            ///so. This is the reason we're falling between connected walls
+            //if(sn1 != sn2)
+            if(opposite(sn1, sn2) || opposite(nn1, nn2))
             {
                 return true;
             }
@@ -151,7 +192,8 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
 
     vec2f get_normal()
     {
-        return (p2 - p1).rot(M_PI/2).norm();
+        return perpendicular((p2 - p1).norm());
+        //return (p2 - p1).rot(M_PI/2).norm();
     }
 
     vec2f get_normal_towards(vec2f pos)
@@ -353,13 +395,80 @@ struct debug_controls
         }
     }
 
+    /*vec2f last_upper = {0,0};
+    vec2f last_lower = {0,0};
+
+    bool has_last = false;
+
+    void connected_line_tool(vec2f mpos, state& st)
+    {
+        if(suppress_mouse)
+            return;
+
+        float separation = 10.f;
+
+        if(ONCE_MACRO(sf::Mouse::Left))
+        {
+            vec2f
+
+            vec2f up;
+            vec2f down;
+
+            if(!has_last)
+            {
+                up = (vec2f){0, 1} * separation/2.f;
+                down = -up;
+            }
+
+            vec2f upos = mpos + up;
+            vec2f dpos = mpos + down;
+
+            if(has_last)
+            {
+                st.physics_barrier_manage.add_point(last_upper, st);
+                st.physics_barrier_manage.add_point(upos, st);
+
+                st.physics_barrier_manage.add_point(last_lower, st);
+                st.physics_barrier_manage.add_point(dpos, st);
+            }
+
+            has_last = true;
+
+            last_upper = upos;
+            last_lower = dpos;
+        }
+    }*/
+
+    vec2f last_pos;
+    bool has_last = false;
+
+    void connected_line_tool(vec2f mpos, state& st)
+    {
+        if(suppress_mouse)
+            return;
+
+        float separation = 10.f;
+
+        if(ONCE_MACRO(sf::Mouse::Left))
+        {
+            if(has_last)
+            {
+                st.physics_barrier_manage.add_point(last_pos, st);
+                st.physics_barrier_manage.add_point(mpos, st);
+            }
+
+            has_last = true;
+            last_pos = mpos;
+        }
+    }
+
     void editor_controls(vec2f mpos, state& st)
     {
         st.game_world_manage.enable_rendering();
 
         ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        std::vector<std::string> tools{"Line Draw", "Spawn Point"};
+        std::vector<std::string> tools{"Line Draw", "Spawn Point", "Connected Line Tool"};
 
         for(int i=0; i<tools.size(); i++)
         {
@@ -384,6 +493,11 @@ struct debug_controls
         if(tools_state == 1)
         {
             spawn_controls(mpos, st);
+        }
+
+        if(tools_state == 2)
+        {
+            connected_line_tool(mpos, st);
         }
 
         if(ImGui::Button("Spawn Enemy"))
@@ -555,8 +669,8 @@ int main()
     ///-2 team bit of a hack, objects default to -1
     player_character* test = dynamic_cast<player_character*>(character_manage.make_new<player_character>(-2, st.net_state));
 
-    load("file.mapfile", physics_barrier_manage, game_world_manage, renderable_manage);
-    renderable_manage.add(test);
+    /*load("file.mapfile", physics_barrier_manage, game_world_manage, renderable_manage);
+    renderable_manage.add(test);*/
 
     sf::Clock clk;
 

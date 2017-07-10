@@ -211,18 +211,14 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         vec2f accum;
 
         int num = 0;
+        int num_cross = 0;
 
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
-            //bool did_phys = false;
-
             if(bar->crosses(pos, next_pos))
             {
                 next_pos = stick_physics(next_pos, bar, accum);
-
-                //num++;
-
-                //did_phys = true;
+                num_cross++;
             }
 
             float line_jump_dist = 2;
@@ -231,11 +227,6 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
             if(dist.length() < line_jump_dist && bar->within(next_pos))
             {
-                /*if(!did_phys && jump_stick_cooldown_cur >= jump_stick_cooldown_time)
-                {
-                    next_pos = stick_physics(next_pos, bar);
-                }*/
-
                 num++;
 
                 stuck_to_surface = true;
@@ -390,6 +381,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         last_pos = pos;
         pos = next_pos;
+
+        //std::cout << "npos " << pos << " cpos " << last_pos << std::endl;
 
         //std::cout << pos << " " << acceleration << std::endl;
 
