@@ -130,6 +130,9 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
 
     bool opposite(float f1, float f2)
     {
+        if(f1 == 0.f || f2 == 0.f)
+            return true;
+
         if(signum(f1) != signum(f2))
         {
             return true;
@@ -145,8 +148,6 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
 
         vec2f normal = get_normal();
 
-        ///nominally
-        //if(s1 != s2)
         if(opposite(s1, s2))
         {
             vec2f n1 = p1 + normal;
@@ -158,11 +159,6 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
             float nn1 = physics_barrier::fside(next_pos, p1, n1);
             float nn2 = physics_barrier::fside(next_pos, p2, n2);
 
-            //printf("cross %f %f\n", sn1, sn2);
-            //std::cout << pos << " nx " << next_pos << " " << p1 << " " << p2 << std::endl;
-
-            ///so. This is the reason we're falling between connected walls
-            //if(sn1 != sn2)
             if(opposite(sn1, sn2) || opposite(nn1, nn2))
             {
                 return true;
@@ -669,8 +665,8 @@ int main()
     ///-2 team bit of a hack, objects default to -1
     player_character* test = dynamic_cast<player_character*>(character_manage.make_new<player_character>(-2, st.net_state));
 
-    /*load("file.mapfile", physics_barrier_manage, game_world_manage, renderable_manage);
-    renderable_manage.add(test);*/
+    load("file.mapfile", physics_barrier_manage, game_world_manage, renderable_manage);
+    renderable_manage.add(test);
 
     sf::Clock clk;
 

@@ -164,8 +164,23 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         return next_pos;
     }*/
 
+    /*float speed_modulate(float in_speed, float angle)
+    {
+        if(angle >= M_PI)
+            return 0.f;
+
+        ///1 -> 0, 1 at min angle and 0 at max
+        float iv_angle_frac = 1.f - (angle / M_PI);
+
+        float new_speed = in_speed * iv_angle_frac;
+
+        float weighting_towards_new = 0.6f;
+
+        return mix(in_speed, new_speed, weighting_towards_new);
+    }*/
+
     ///instead of line normal use vertical
-    vec2f stick_physics(vec2f next_pos, physics_barrier* bar, vec2f& accumulate_shift)
+    vec2f stick_physics(vec2f next_pos, physics_barrier* bar, vec2f& accumulate_shift) const
     {
         float approx_ish_velocity = (pos - last_pos).length();
 
@@ -193,7 +208,11 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             dir = (bar->p1 - bar->p2).norm();
         }
 
-        vec2f projected = projection(next_pos - pos, dir);
+        //vec2f projected = projection(next_pos - pos, dir);
+
+        //vec2f projected = dir.norm() * speed_modulate(clen, angle_between_vectors(dir, next_pos - pos));
+
+        vec2f projected = dir.norm() * clen;
 
         //accumulate_shift += to_line - to_line.norm();
 
@@ -213,7 +232,40 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         int num = 0;
         int num_cross = 0;
 
+        float min_dist = FLT_MAX;
+        physics_barrier* min_bar = nullptr;
+
         for(physics_barrier* bar : physics_barrier_manage.objs)
+        {
+            if(bar->crosses(pos, next_pos))
+            {
+                vec2f potential_physics = stick_physics(next_pos, bar, accum);
+                num_cross++;
+            }
+
+            float line_jump_dist = 2;
+
+            vec2f dist = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), next_pos);
+
+            ///might not work 100% for very shallow non convex angles
+            if(dist.length() < min_dist && bar->crosses(pos, next_pos))
+            {
+                min_dist = dist.length();
+                min_bar = bar;
+            }
+
+            if(dist.length() < line_jump_dist && bar->within(next_pos))
+            {
+                num++;
+
+                stuck_to_surface = true;
+                can_jump = true;
+                jump_dir += bar->get_normal_towards(next_pos);
+            }
+        }
+
+
+        /*for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             if(bar->crosses(pos, next_pos))
             {
@@ -233,14 +285,17 @@ struct player_character : virtual character_base, virtual networkable_host, virt
                 can_jump = true;
                 jump_dir += bar->get_normal_towards(next_pos);
             }
-        }
+        }*/
+
+        if(min_bar != nullptr)
+            next_pos = stick_physics(next_pos, min_bar, accum);
 
         ///if we encounter physics problems in the future at the intersection between two lines in the good case
         ///special case this for the bad case (acute angle), could check if any crossing happens
         if(num == 1)
         {
-            pos += accum.norm();
-            next_pos += accum.norm();
+            pos += accum.norm() * 2.f;
+            next_pos += accum.norm() * 2.f;
         }
 
         return next_pos;
