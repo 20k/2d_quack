@@ -181,9 +181,9 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     ///instead of line normal use vertical
     ///aha: Fundamental issue, to_line can be wrong direction because we hit the vector from underneath
-    vec2f stick_physics(vec2f next_pos, physics_barrier* bar, vec2f& accumulate_shift) const
+    vec2f stick_physics(vec2f next_pos, physics_barrier* bar, physics_barrier* closest, vec2f& accumulate_shift) const
     {
-        float approx_ish_velocity = (pos - last_pos).length();
+        //float approx_ish_velocity = (pos - last_pos).length();
 
         vec2f cdir = (next_pos - pos).norm();
         float clen = (next_pos - pos).length();
@@ -217,8 +217,23 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //accumulate_shift += to_line - to_line.norm();
 
-        if(bar->within(pos))
-            accumulate_shift += -to_line.norm();
+        //vec2f intersection_dir = point2line_intersection(pos, next_pos, bar->p1, bar->p2);
+        //vec2f perp_dir = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), pos);
+
+
+        if(closest != nullptr)
+        {
+            vec2f to_line_base = point2line_shortest(closest->p1, (closest->p2 - closest->p1).norm(), pos);
+
+            float angle = angle_between_vectors(to_line, to_line_base);
+
+            if(angle >= M_PI/2.f)
+            {
+                to_line = -to_line;
+            }
+        }
+
+        accumulate_shift += -to_line.norm();
 
         //pos += to_line - to_line.norm();
         next_pos = projected + pos;
@@ -227,25 +242,53 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         return next_pos;
     }
 
+    physics_barrier* get_closest(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
+    {
+        float min_dist = FLT_MAX;
+        physics_barrier* min_bar = nullptr;
+
+        for(physics_barrier* bar : physics_barrier_manage.objs)
+        {
+            vec2f dist_intersect = point2line_intersection(pos, next_pos, bar->p1, bar->p2) - pos;
+
+            ///might not work 100% for very shallow non convex angles
+            if(dist_intersect.length() < min_dist && bar->crosses(pos, next_pos))
+            {
+                min_dist = dist_intersect.length();
+                min_bar = bar;
+            }
+        }
+
+        return min_bar;
+    }
+
+    ///if the physics still refuses to work:
+    ///do normal physics but ignore accum
+    ///then for each accum term, test to see if this causes intersections
+    ///if it does, flip it
     vec2f adjust_next_pos_for_physics(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
     {
+        physics_barrier* min_bar = get_closest(next_pos, physics_barrier_manage);
+
         vec2f accum;
 
         int num = 0;
         int num_cross = 0;
 
-        float min_dist = FLT_MAX;
-        physics_barrier* min_bar = nullptr;
+        //float min_dist = FLT_MAX;
+        //physics_barrier* min_bar = nullptr;
 
         vec2f move_dir = {0,0};
         vec2f large_rad_dir = {0,0};
+
+        bool any_large_rad = false;
 
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             if(bar->crosses(pos, next_pos))
             {
-                //next_pos = stick_physics(next_pos, bar, accum);
-                vec2f potential_physics = stick_physics(next_pos, bar, accum);
+                next_pos = stick_physics(next_pos, bar, min_bar, accum);
+                //vec2f potential_physics = stick_physics(next_pos, bar, accum);
                 num_cross++;
             }
 
@@ -256,11 +299,11 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             vec2f dist_intersect = point2line_intersection(pos, next_pos, bar->p1, bar->p2) - pos;
 
             ///might not work 100% for very shallow non convex angles
-            if(dist_intersect.length() < min_dist && bar->crosses(pos, next_pos))
+            /*if(dist_intersect.length() < min_dist && bar->crosses(pos, next_pos))
             {
                 min_dist = dist_intersect.length();
                 min_bar = bar;
-            }
+            }*/
 
             if(dist_perp.length() < line_jump_dist && bar->within(next_pos))
             {
@@ -277,10 +320,38 @@ struct player_character : virtual character_base, virtual networkable_host, virt
                 jump_dir += bar->get_normal_towards(next_pos);
             }
 
-            if(dist_perp.length() < 10)
+            /*float min_dist = std::min((pos - bar->p1).length(), (pos - bar->p2).length());
+
+            //if(dist_perp.length() < 1)
+            if(min_dist < 3)
             {
                 large_rad_dir += -dist_perp.norm();
+
+                any_large_rad = true;
+            }*/
+        }
+
+        if(accum.sum_absolute() > 0.00001f)
+            accum = accum.norm();
+
+        if(!physics_barrier_manage.any_crosses(next_pos, next_pos + accum))
+        {
+            pos += accum;
+            next_pos += accum;
+        }
+        else
+        {
+            if(!physics_barrier_manage.any_crosses(next_pos, next_pos + -accum))
+            {
+                pos += -accum;
+                next_pos += -accum;
             }
+            else
+            {
+                printf("oops 2\n");
+            }
+
+            printf("oops\n");
         }
 
 
@@ -306,10 +377,46 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             }
         }*/
 
+        #if 0
+
         accum = {0,0};
 
         if(min_bar != nullptr)
             next_pos = stick_physics(next_pos, min_bar, accum);
+
+        vec2f to_line_base;
+
+        if(min_bar)
+            to_line_base = point2line_shortest(min_bar->p1, (min_bar->p2 - min_bar->p1).norm(), pos);
+
+        for(physics_barrier* bar : physics_barrier_manage.objs)
+        {
+            if(bar == min_bar)
+                continue;
+
+            if(min_bar == nullptr)
+                continue;
+
+            float min_dist = std::min((pos - bar->p1).length(), (pos - bar->p2).length());
+
+            if(min_dist < 20)
+            {
+                //large_rad_dir += -dist_perp.norm();
+
+                vec2f dist_perp = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), pos);
+
+                float angle = angle_between_vectors(dist_perp, to_line_base);
+
+                if(angle >= M_PI/2.f)
+                {
+                    dist_perp = -dist_perp;
+                }
+
+                large_rad_dir += -dist_perp;
+
+                any_large_rad = true;
+            }
+        }
 
         ///if we encounter physics problems in the future at the intersection between two lines in the good case
         ///special case this for the bad case (acute angle), could check if any crossing happens
@@ -324,7 +431,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             //if(bar->crosses(pos, pos + accum) || bar->crosses(next_pos, next_pos + accum))
-            if(bar->crosses(next_pos, next_pos + accum))
+            if(bar->crosses(next_pos, next_pos + large_rad_dir))
             {
                 can_adjust_pos = false;
                 break;
@@ -338,10 +445,15 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //next_pos = (next_pos - pos).norm() * len + pos;
 
+        if(any_large_rad)
+        {
+            large_rad_dir = large_rad_dir.norm();
+        }
+
         if(can_adjust_pos && num_cross <= 1)
         {
-            pos += accum;
-            next_pos += accum;
+            pos += large_rad_dir;
+            next_pos += large_rad_dir;
         }
         else
         {
@@ -388,6 +500,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         {
             printf("2cross %i\n", num_cross);
         }
+
+        #endif
 
         return next_pos;
     }
