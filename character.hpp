@@ -6,14 +6,12 @@
 struct projectile;
 
 ///do damage properly with pending damage in damageable
-struct character_base : virtual renderable, virtual damageable_base, virtual collideable, virtual base_class, virtual network_serialisable
+struct character_base : virtual moveable, virtual renderable, virtual damageable_base, virtual collideable, virtual base_class, virtual network_serialisable
 {
     character_base(int team) : collideable(team, collide::RAD)
     {
         collision_dim = {tex.getSize().x, tex.getSize().y};
     }
-
-    vec2f pos;
 
     virtual void tick(float dt_s, state& st) {};
 
@@ -181,6 +179,10 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     ///instead of line normal use vertical
     ///aha: Fundamental issue, to_line can be wrong direction because we hit the vector from underneath
+    ///stick physics still the issue
+    ///it seems likely that we have a bad accum, which then causes the character to be pushed through a vector
+    ///test if placing a point next to the new vector rwith the relative position of the old, then applying the accum * extreme
+    ///would push the character through the vector. If true, rverse it
     vec2f stick_physics(vec2f next_pos, physics_barrier* bar, physics_barrier* closest, vec2f& accumulate_shift) const
     {
         vec2f cdir = (next_pos - pos).norm();
@@ -207,7 +209,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         vec2f projected = dir.norm() * clen;
 
-        if(closest != nullptr)
+        /*if(closest != nullptr)
         {
             vec2f to_line_base = point2line_shortest(closest->p1, (closest->p2 - closest->p1).norm(), pos);
 
@@ -217,7 +219,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             {
                 to_line = -to_line;
             }
-        }
+        }*/
 
         accumulate_shift += -to_line.norm();
 
@@ -234,6 +236,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             vec2f dist_intersect = point2line_intersection(pos, next_pos, bar->p1, bar->p2) - pos;
+
+            //vec2f to_line_base = point2line_shortest(closest->p1, (closest->p2 - closest->p1).norm(), pos);
 
             ///might not work 100% for very shallow non convex angles
             if(dist_intersect.length() < min_dist && bar->crosses(pos, next_pos))
@@ -261,6 +265,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         bool any_large_rad = false;
 
+        vec2f original_next = next_pos;
+
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             if(bar->crosses(pos, next_pos))
@@ -280,27 +286,116 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             }
         }
 
-        if(accum.sum_absolute() > 0.00001f)
-            accum = accum.norm();
-
-        if(!physics_barrier_manage.any_crosses(next_pos, next_pos + accum) && !physics_barrier_manage.any_crosses(pos, pos + accum))
+        /*if(min_bar)
         {
-            pos += accum;
-            next_pos += accum;
-        }
-        else
-        {
-            if(!physics_barrier_manage.any_crosses(next_pos, next_pos + -accum) && !physics_barrier_manage.any_crosses(pos, pos + -accum))
+            if(min_bar->crosses(pos, next_pos))
             {
-                pos += -accum;
-                next_pos += -accum;
+                next_pos = stick_physics(next_pos, min_bar, min_bar, accum);
+            }
+        }*/
+
+        accum = {0,0};
+
+        for(physics_barrier* bar : physics_barrier_manage.objs)
+        {
+            if(!bar->crosses(pos, original_next))
+                continue;
+
+            vec2f to_line = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), next_pos);
+
+            if(!physics_barrier_manage.any_crosses(next_pos, next_pos - to_line.norm() * 5))
+            {
+                accum += -to_line.norm();
             }
             else
             {
-                printf("oops 2\n");
+                if(!physics_barrier_manage.any_crosses(next_pos, next_pos + to_line.norm() * 5))
+                {
+                    accum += to_line.norm();
+                }
             }
+        }
 
-            printf("oops\n");
+        /*if(min_bar)
+        {
+            if(min_bar->crosses(pos, next_pos))
+            {
+                next_pos = stick_physics(next_pos, min_bar, min_bar, accum);
+            }
+        }*/
+
+        if(physics_barrier_manage.any_crosses(pos, next_pos))
+        {
+            printf("clip\n");
+        }
+
+        bool failure_state = false;
+
+        if(accum.sum_absolute() > 0.00001f)
+            accum = accum.norm();
+
+        //if(!physics_barrier_manage.any_crosses(pos, next_pos))
+        {
+            if(!physics_barrier_manage.any_crosses(next_pos, next_pos + accum) && !physics_barrier_manage.any_crosses(pos, pos + accum) && !physics_barrier_manage.any_crosses(pos + accum, next_pos + accum))
+            {
+                pos += accum;
+                next_pos += accum;
+            }
+            else
+            {
+                failure_state = true;
+
+                if(!physics_barrier_manage.any_crosses(next_pos, next_pos + -accum) && !physics_barrier_manage.any_crosses(pos, pos + -accum) && !physics_barrier_manage.any_crosses(pos + -accum, next_pos + -accum))
+                {
+                    pos += -accum;
+                    next_pos += -accum;
+
+                    failure_state = false;
+                }
+                else
+                {
+                    printf("oops 2\n");
+                }
+
+                printf("oops\n");
+            }
+        }
+        /*else
+        {
+            failure_state = true;
+        }*/
+
+
+        /*if(failure_state)
+        {
+            int inum = 40;
+
+            for(int i=0; i<inum; i++)
+            {
+                float frac = (float)i / inum;
+
+                float angle = frac * 2 * M_PI;
+
+                float x = cos(angle);
+                float y = sin(angle);
+
+                vec2f test = {x, y};
+
+                if(!physics_barrier_manage.any_crosses(next_pos, next_pos + test) && !physics_barrier_manage.any_crosses(pos, pos + test) && !physics_barrier_manage.any_crosses(pos + test, next_pos + test))
+                {
+                    pos += test;
+                    next_pos += test;
+
+                    printf("recovered from failure state\n");
+
+                    break;
+                }
+            }
+        }*/
+
+        if(physics_barrier_manage.any_crosses(pos, next_pos))
+        {
+            next_pos = pos;
         }
 
         return next_pos;

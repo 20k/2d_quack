@@ -163,4 +163,9 @@ struct collideable : virtual base_class
     }
 };
 
+struct moveable : virtual base_class
+{
+    vec2f pos;
+};
+
 #endif // SYSTEMS_HPP_INCLUDED

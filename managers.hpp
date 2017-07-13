@@ -154,7 +154,7 @@ struct network_manager_base : virtual object_manager<T>
 template<typename T>
 struct renderable_manager_base : virtual object_manager<T>
 {
-    void render(sf::RenderWindow& win)
+    virtual void render(sf::RenderWindow& win)
     {
         for(renderable* r : object_manager<T>::objs)
         {

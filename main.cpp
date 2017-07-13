@@ -45,6 +45,11 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
     vec2f p1;
     vec2f p2;
 
+    ///connected to p1
+    physics_barrier* next = nullptr;
+    ///connected to p2
+    physics_barrier* prev = nullptr;
+
     physics_barrier() : collideable(-1, collide::PHYS_LINE) {}
 
     bool intersects(collideable* other)
@@ -141,7 +146,7 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return false;
     }
 
-    bool crosses_p1(vec2f pos, vec2f next_pos)
+    /*bool crosses_p1(vec2f pos, vec2f next_pos)
     {
         float s1 = fside(pos);
         float s2 = fside(next_pos);
@@ -187,7 +192,7 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         }
 
         return false;
-    }
+    }*/
 
     bool crosses(vec2f pos, vec2f next_pos)
     {
@@ -211,6 +216,14 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
             {
                 return true;
             }
+
+            vec2f intersect = point2line_intersection(pos, next_pos, p1, p2);
+
+            float in1 = physics_barrier::fside(intersect, p1, n1);
+            float in2 = physics_barrier::fside(intersect, p2, n2);
+
+            if(opposite(in1, in2))
+                return true;
         }
 
         return false;
@@ -236,7 +249,7 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
 
     vec2f get_normal()
     {
-        return perpendicular((p2 - p1).norm());
+        return -perpendicular((p2 - p1).norm());
         //return (p2 - p1).rot(M_PI/2).norm();
     }
 
@@ -279,6 +292,8 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
     bool adding = false;
     vec2f adding_point;
 
+    bool show_normals = false;
+
     void add_point(vec2f pos, state& st)
     {
         if(!adding)
@@ -302,6 +317,8 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
 
             return;
         }
+
+        build_connectivity();
     }
 
     byte_vector serialise()
@@ -328,6 +345,8 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
 
             objs.push_back(bar);
         }
+
+        build_connectivity();
     }
 
     bool any_crosses(vec2f p1, vec2f p2)
@@ -339,6 +358,61 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
         }
 
         return false;
+    }
+
+    virtual void render(sf::RenderWindow& win)
+    {
+        for(renderable* r : object_manager<physics_barrier>::objs)
+        {
+            r->render(win);
+        }
+
+        if(show_normals)
+        {
+            for(physics_barrier* bar : objs)
+            {
+                vec2f normal = bar->get_normal();
+
+                sf::RectangleShape rect;
+
+                rect.setSize({20, 2});
+
+                rect.setOrigin({0, 1});
+                rect.setFillColor(sf::Color(255, 100, 100));
+
+                vec2f center = (bar->p1 + bar->p2)/2.f;
+
+                rect.setPosition(center.x(), center.y());
+
+                rect.setRotation(r2d(normal.angle()));
+
+                win.draw(rect);
+            }
+        }
+    }
+
+    void build_connectivity()
+    {
+        for(physics_barrier* b1 : objs)
+        {
+            for(physics_barrier* b2 : objs)
+            {
+                if(b1 == b2)
+                    continue;
+
+                if(b1->p1 == b2->p2)
+                {
+                    b1->prev = b2;
+                    b2->next = b1;
+                }
+
+                if(b1->p2 == b2->p1)
+                {
+                    b1->next = b2;
+                    b2->prev = b1;
+                }
+            }
+        }
     }
 };
 
@@ -517,6 +591,8 @@ struct debug_controls
         }
     }
 
+    bool show_normals = false;
+
     void editor_controls(vec2f mpos, state& st)
     {
         st.game_world_manage.enable_rendering();
@@ -563,6 +639,10 @@ struct debug_controls
             c->last_pos = c->pos;
             c->init_collision_pos(c->pos);
         }
+
+        ImGui::Checkbox("Show normals", &show_normals);
+
+        st.physics_barrier_manage.show_normals = show_normals;
 
         ImGui::End();
     }
