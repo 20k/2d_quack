@@ -146,54 +146,6 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return false;
     }
 
-    /*bool crosses_p1(vec2f pos, vec2f next_pos)
-    {
-        float s1 = fside(pos);
-        float s2 = fside(next_pos);
-
-        vec2f normal = get_normal();
-
-        if(opposite(s1, s2))
-        {
-            vec2f n1 = p1 + normal;
-            vec2f n2 = p2 + normal;
-
-            float sn1 = physics_barrier::fside(pos, p1, n1);
-            float sn2 = physics_barrier::fside(pos, p2, n2);
-
-            if(opposite(sn1, sn2))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    bool crosses_p2(vec2f pos, vec2f next_pos)
-    {
-        float s1 = fside(pos);
-        float s2 = fside(next_pos);
-
-        vec2f normal = get_normal();
-
-        if(opposite(s1, s2))
-        {
-            vec2f n1 = p1 + normal;
-            vec2f n2 = p2 + normal;
-
-            float nn1 = physics_barrier::fside(next_pos, p1, n1);
-            float nn2 = physics_barrier::fside(next_pos, p2, n2);
-
-            if(opposite(nn1, nn2))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }*/
-
     bool crosses(vec2f pos, vec2f next_pos)
     {
         float s1 = fside(pos);
@@ -234,11 +186,6 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return crosses(pos, next_pos) && on_normal_side(pos);
     }
 
-    bool crosses_normal_ext(vec2f pos, vec2f next_pos, bool has_ref, vec2f ref_normal)
-    {
-        return crosses(pos, next_pos) && on_normal_side_ext(pos, has_ref, ref_normal);
-    }
-
     bool within(vec2f pos)
     {
         vec2f normal = get_normal();
@@ -260,25 +207,11 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
     vec2f get_normal()
     {
         return -perpendicular((p2 - p1).norm());
-        //return (p2 - p1).rot(M_PI/2).norm();
     }
 
     bool on_normal_side(vec2f pos)
     {
         if(!opposite(fside(pos), fside(p1 + get_normal())))
-            return true;
-
-        return false;
-    }
-
-    bool on_normal_side_ext(vec2f pos, bool has_ref, vec2f ref_normal)
-    {
-        if(!has_ref)
-        {
-            return true;
-        }
-
-        if(!opposite(fside(pos), fside(p1 + ref_normal)))
             return true;
 
         return false;
@@ -409,17 +342,6 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
         for(physics_barrier* bar : objs)
         {
             if(bar->crosses_normal(p1, p2))
-                return true;
-        }
-
-        return false;
-    }
-
-    bool any_crosses_normal_ext(vec2f p1, vec2f p2, bool has_ref, vec2f ref_normal)
-    {
-        for(physics_barrier* bar : objs)
-        {
-            if(bar->crosses_normal_ext(p1, p2, has_ref, ref_normal))
                 return true;
         }
 
