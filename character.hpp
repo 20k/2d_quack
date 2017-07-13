@@ -331,17 +331,32 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
             vec2f to_line = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), next_pos);
 
+            float line_distance = 2.f;
+
+            float dir = 0.f;
+
             if(!any_crosses_with_normal(next_pos, next_pos - to_line.norm() * 5, physics_barrier_manage))
             {
-                accum += -to_line.norm();
+                dir = -1;
             }
             else
             {
                 if(!any_crosses_with_normal(next_pos, next_pos + to_line.norm() * 5, physics_barrier_manage))
                 {
-                    accum += to_line.norm();
+                    dir = 1;
                 }
             }
+
+            float dist = line_distance - to_line.length();
+
+            float extra = 1.f;
+
+            if(dist > 0)
+            {
+                accum += dir * to_line.norm() * dist;
+            }
+
+            //accum += dir * to_line.norm();
         }
 
 

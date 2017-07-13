@@ -170,7 +170,7 @@ struct moveable : virtual base_class
     bool has_default = false;
     bool on_default_side = false;
     float side_time = 0.f;
-    float side_time_max = 0.150f;
+    float side_time_max = 0.100f;
 };
 
 #endif // SYSTEMS_HPP_INCLUDED
