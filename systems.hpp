@@ -166,6 +166,9 @@ struct collideable : virtual base_class
 struct moveable : virtual base_class
 {
     vec2f pos;
+
+    ///doesn't matter what type this is, and is never dereferenced
+    void* last_managed_collider = nullptr;
 };
 
 #endif // SYSTEMS_HPP_INCLUDED

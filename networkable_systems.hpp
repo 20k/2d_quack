@@ -158,7 +158,7 @@ struct explosion_projectile_base : virtual projectile_base, virtual networkable_
     float alive_time = 0.f;
     float alive_time_max = 0.15f;
 
-    explosion_projectile_base() : projectile_base(-3), collideable(-3, collide::RAD)
+    explosion_projectile_base() : collideable(-3, collide::RAD), projectile_base(-3)
     {
         rad = 10.f;
 
@@ -195,14 +195,14 @@ struct explosion_projectile_base : virtual projectile_base, virtual networkable_
 
 struct explosion_projectile_client : virtual explosion_projectile_base
 {
-    explosion_projectile_client() : explosion_projectile_base(), collideable(-3, collide::RAD) {}
+    explosion_projectile_client() : collideable(-3, collide::RAD), explosion_projectile_base() {}
 
     virtual ~explosion_projectile_client(){}
 };
 
 struct explosion_projectile_host : virtual explosion_projectile_base
 {
-    explosion_projectile_host() : explosion_projectile_base(),collideable(-3, collide::RAD) {}
+    explosion_projectile_host() : collideable(-3, collide::RAD), explosion_projectile_base() {}
 
     virtual void on_collide(state& st, collideable* other)
     {

@@ -229,6 +229,11 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return false;
     }
 
+    bool crosses_normal(vec2f pos, vec2f next_pos)
+    {
+        return crosses(pos, next_pos) && on_normal_side(pos);
+    }
+
     bool within(vec2f pos)
     {
         vec2f normal = get_normal();
@@ -251,6 +256,14 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
     {
         return -perpendicular((p2 - p1).norm());
         //return (p2 - p1).rot(M_PI/2).norm();
+    }
+
+    bool on_normal_side(vec2f pos)
+    {
+        if(!opposite(fside(pos), fside(p1 + get_normal())))
+            return true;
+
+        return false;
     }
 
     vec2f get_normal_towards(vec2f pos)
@@ -354,6 +367,17 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
         for(physics_barrier* bar : objs)
         {
             if(bar->crosses(p1, p2))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool any_crosses_normal(vec2f p1, vec2f p2)
+    {
+        for(physics_barrier* bar : objs)
+        {
+            if(bar->crosses_normal(p1, p2))
                 return true;
         }
 
