@@ -167,8 +167,11 @@ struct moveable : virtual base_class
 {
     vec2f pos;
 
+    vec2f last_hit_normal;
+    bool has_hit_normal = false;
+
     ///doesn't matter what type this is, and is never dereferenced
-    void* last_managed_collider = nullptr;
+    //void* last_managed_collider = nullptr;
 };
 
 #endif // SYSTEMS_HPP_INCLUDED

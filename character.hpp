@@ -359,9 +359,24 @@ struct player_character : virtual character_base, virtual networkable_host, virt
     ///do normal physics but ignore accum
     ///then for each accum term, test to see if this causes intersections
     ///if it does, flip it
+
+    ///Ok: last fix now
+    ///We can avoid having to define normal systems by using the fact that normals are consistent
+    ///If we have double collisions, we can probably use the normal of my current body i'm intersecting with/near and then
+    ///use that to define the appropriate normal of the next body (ie we can check if we hit underneath)
+    ///this should mean that given consistently defined normals (ie dont randomly flip adjacent), we should be fine
     vec2f adjust_next_pos_for_physics(vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
     {
         physics_barrier* min_bar = get_closest(next_pos, physics_barrier_manage);
+
+        has_hit_normal = false;
+
+        if(min_bar)
+        {
+            has_hit_normal = true;
+            //last_hit_normal = min_bar->get_normal();
+            last_hit_normal = min_bar->get_normal_towards(pos);
+        }
 
         vec2f accum;
 
@@ -374,7 +389,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
-            if(bar->crosses(pos, next_pos) && bar->on_normal_side(pos))
+            if(bar->crosses(pos, next_pos) && bar->on_normal_side_ext(pos, has_hit_normal, last_hit_normal))
             {
                 /*vec2f test_next = stick_physics(next_pos, bar, min_bar, accum);
 
@@ -415,13 +430,13 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
             vec2f to_line = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), next_pos);
 
-            if(!physics_barrier_manage.any_crosses_normal(next_pos, next_pos - to_line.norm() * 5))
+            if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos - to_line.norm() * 5, has_hit_normal, last_hit_normal))
             {
                 accum += -to_line.norm();
             }
             else
             {
-                if(!physics_barrier_manage.any_crosses_normal(next_pos, next_pos + to_line.norm() * 5))
+                if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos + to_line.norm() * 5, has_hit_normal, last_hit_normal))
                 {
                     accum += to_line.norm();
                 }
@@ -436,7 +451,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             }
         }*/
 
-        if(physics_barrier_manage.any_crosses_normal(pos, next_pos))
+        if(physics_barrier_manage.any_crosses_normal_ext(pos, next_pos, has_hit_normal, last_hit_normal))
         {
             printf("clip\n");
         }
@@ -448,7 +463,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //if(!physics_barrier_manage.any_crosses(pos, next_pos))
         {
-            if(!physics_barrier_manage.any_crosses_normal(next_pos, next_pos + accum) && !physics_barrier_manage.any_crosses_normal(pos, pos + accum) && !physics_barrier_manage.any_crosses_normal(pos + accum, next_pos + accum))
+            if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos + accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos, pos + accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos + accum, next_pos + accum, has_hit_normal, last_hit_normal))
             {
                 pos += accum;
                 next_pos += accum;
@@ -457,7 +472,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             {
                 failure_state = true;
 
-                if(!physics_barrier_manage.any_crosses_normal(next_pos, next_pos + -accum) && !physics_barrier_manage.any_crosses_normal(pos, pos + -accum) && !physics_barrier_manage.any_crosses_normal(pos + -accum, next_pos + -accum))
+                if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos + -accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos, pos + -accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos + -accum, next_pos + -accum, has_hit_normal, last_hit_normal))
                 {
                     pos += -accum;
                     next_pos += -accum;

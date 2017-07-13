@@ -234,6 +234,11 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return crosses(pos, next_pos) && on_normal_side(pos);
     }
 
+    bool crosses_normal_ext(vec2f pos, vec2f next_pos, bool has_ref, vec2f ref_normal)
+    {
+        return crosses(pos, next_pos) && on_normal_side_ext(pos, has_ref, ref_normal);
+    }
+
     bool within(vec2f pos)
     {
         vec2f normal = get_normal();
@@ -266,12 +271,25 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return false;
     }
 
+    bool on_normal_side_ext(vec2f pos, bool has_ref, vec2f ref_normal)
+    {
+        if(!has_ref)
+        {
+            return true;
+        }
+
+        if(!opposite(fside(pos), fside(p1 + ref_normal)))
+            return true;
+
+        return false;
+    }
+
     vec2f get_normal_towards(vec2f pos)
     {
         vec2f rel = (pos - (p1 + p2)/2.f);
 
-        vec2f n_1 = (p2 - p1).norm().rot(M_PI/2.f);
-        vec2f n_2 = (p2 - p1).norm().rot(-M_PI/2.f);
+        vec2f n_1 = perpendicular(p2 - p1).norm();
+        vec2f n_2 = -perpendicular(p2 - p1).norm();
 
         float a1 = angle_between_vectors(n_1, rel);
         float a2 = angle_between_vectors(n_2, rel);
@@ -378,6 +396,17 @@ struct physics_barrier_manager : virtual renderable_manager_base<physics_barrier
         for(physics_barrier* bar : objs)
         {
             if(bar->crosses_normal(p1, p2))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool any_crosses_normal_ext(vec2f p1, vec2f p2, bool has_ref, vec2f ref_normal)
+    {
+        for(physics_barrier* bar : objs)
+        {
+            if(bar->crosses_normal_ext(p1, p2, has_ref, ref_normal))
                 return true;
         }
 
