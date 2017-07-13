@@ -284,6 +284,19 @@ struct physics_barrier : virtual renderable, virtual collideable, virtual base_c
         return false;
     }
 
+    bool on_normal_side_with_default(vec2f pos, bool is_default)
+    {
+        ///testing if we're on the default side
+        if(is_default)
+        {
+            return on_normal_side(pos);
+        }
+        else
+        {
+            return !on_normal_side(pos);
+        }
+    }
+
     vec2f get_normal_towards(vec2f pos)
     {
         vec2f rel = (pos - (p1 + p2)/2.f);
@@ -876,6 +889,11 @@ int main()
         vec2f mpos = {sfml_mpos.x, sfml_mpos.y};
 
         float dt_s = (clk.restart().asMicroseconds() / 1000.) / 1000.f;
+
+        if(dt_s > 1/33.f)
+        {
+            dt_s = 1/33.f;
+        }
 
         st.dt_s = dt_s;
 

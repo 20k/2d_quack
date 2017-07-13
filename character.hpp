@@ -353,6 +353,33 @@ struct player_character : virtual character_base, virtual networkable_host, virt
     }
     #endif
 
+    bool crosses_with_normal(vec2f p1, vec2f next_pos, physics_barrier* bar)
+    {
+        if(has_default)
+            return bar->crosses(p1, next_pos) && bar->on_normal_side_with_default(p1, on_default_side);// && bar->on_normal_side(p1);
+        else
+        {
+            return bar->crosses(p1, next_pos);
+        }
+
+    }
+
+    bool any_crosses_with_normal(vec2f p1, vec2f next_pos, physics_barrier_manager& physics_barrier_manage)
+    {
+        for(physics_barrier* bar : physics_barrier_manage.objs)
+        {
+            if(crosses_with_normal(p1, next_pos, bar))
+                return true;
+        }
+
+        return false;
+    }
+
+    bool full_test(vec2f pos, vec2f next_pos, vec2f accum, physics_barrier_manager& physics_barrier_manage)
+    {
+        return !any_crosses_with_normal(next_pos, next_pos + accum, physics_barrier_manage) && !any_crosses_with_normal(pos, pos + accum, physics_barrier_manage) && !any_crosses_with_normal(pos + accum, next_pos + accum, physics_barrier_manage);
+    }
+
     #if 1
 
     ///if the physics still refuses to work:
@@ -369,14 +396,30 @@ struct player_character : virtual character_base, virtual networkable_host, virt
     {
         physics_barrier* min_bar = get_closest(next_pos, physics_barrier_manage);
 
-        has_hit_normal = false;
+        //has_hit_normal = false;
 
-        if(min_bar)
+        if(side_time > side_time_max)
+            has_default = false;
+
+        //on_default_side = false;
+
+
+        if(min_bar && !has_default)
         {
-            has_hit_normal = true;
+            //has_hit_normal = true;
             //last_hit_normal = min_bar->get_normal();
-            last_hit_normal = min_bar->get_normal_towards(pos);
+            //last_hit_normal = min_bar->get_normal_towards(pos);
+
+            has_default = true;
+            on_default_side = min_bar->on_normal_side(pos);
         }
+
+        //printf("%i %i default\n", has_default, on_default_side);
+
+        /*if(any_crosses_with_normal(pos, next_pos, physics_barrier_manage))
+        {
+            side_time = 0;
+        }*/
 
         vec2f accum;
 
@@ -389,7 +432,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
-            if(bar->crosses(pos, next_pos) && bar->on_normal_side_ext(pos, has_hit_normal, last_hit_normal))
+            if(crosses_with_normal(pos, next_pos, bar))
+            //if(bar->crosses(pos, next_pos) && bar->on_normal_side(pos))
             {
                 /*vec2f test_next = stick_physics(next_pos, bar, min_bar, accum);
 
@@ -410,6 +454,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
                 stuck_to_surface = true;
                 can_jump = true;
                 jump_dir += bar->get_normal_towards(next_pos);
+
+                side_time = 0;
             }
         }
 
@@ -430,13 +476,13 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
             vec2f to_line = point2line_shortest(bar->p1, (bar->p2 - bar->p1).norm(), next_pos);
 
-            if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos - to_line.norm() * 5, has_hit_normal, last_hit_normal))
+            if(!any_crosses_with_normal(next_pos, next_pos - to_line.norm() * 5, physics_barrier_manage))
             {
                 accum += -to_line.norm();
             }
             else
             {
-                if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos + to_line.norm() * 5, has_hit_normal, last_hit_normal))
+                if(!any_crosses_with_normal(next_pos, next_pos + to_line.norm() * 5, physics_barrier_manage))
                 {
                     accum += to_line.norm();
                 }
@@ -451,7 +497,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             }
         }*/
 
-        if(physics_barrier_manage.any_crosses_normal_ext(pos, next_pos, has_hit_normal, last_hit_normal))
+        if(any_crosses_with_normal(pos, next_pos, physics_barrier_manage))
         {
             printf("clip\n");
         }
@@ -463,7 +509,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //if(!physics_barrier_manage.any_crosses(pos, next_pos))
         {
-            if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos + accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos, pos + accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos + accum, next_pos + accum, has_hit_normal, last_hit_normal))
+            if(full_test(pos, next_pos, accum, physics_barrier_manage))
             {
                 pos += accum;
                 next_pos += accum;
@@ -472,7 +518,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             {
                 failure_state = true;
 
-                if(!physics_barrier_manage.any_crosses_normal_ext(next_pos, next_pos + -accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos, pos + -accum, has_hit_normal, last_hit_normal) && !physics_barrier_manage.any_crosses_normal_ext(pos + -accum, next_pos + -accum, has_hit_normal, last_hit_normal))
+                if(full_test(pos, next_pos, -accum, physics_barrier_manage))
                 {
                     pos += -accum;
                     next_pos += -accum;
@@ -598,7 +644,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             }
         }*/
 
-        if(physics_barrier_manage.any_crosses_normal(pos, next_pos))
+        if(any_crosses_with_normal(pos, next_pos, physics_barrier_manage))
         {
             next_pos = pos;
         }
@@ -761,6 +807,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         //last_collision_pos = collision_pos;
         //collision_pos = pos;
         set_collision_pos(pos);
+
+        side_time += dt;
     }
 
     void do_gravity(vec2f dir)
