@@ -177,6 +177,33 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         return mix(in_speed, new_speed, weighting_towards_new);
     }*/
 
+    float speed_modulate(float in_speed, float angle) const
+    {
+        //printf("%f angle\n", r2d(angle));
+
+        angle = fabs(angle);
+
+        ///arbitrary
+        float frictionless_angle = d2r(50.f);
+
+        if(angle < frictionless_angle)
+            return in_speed;
+
+        //printf("%f %f a\n", angle, frictionless_angle);
+
+        float slow_frac = (angle - frictionless_angle) / ((M_PI/2.f) - frictionless_angle);
+
+        slow_frac = clamp(slow_frac, 0.f, 1.f);
+
+        slow_frac = pow(slow_frac, 2.f);
+
+        slow_frac /= 2.f;
+
+        //printf("%f slow\n", slow_frac);
+
+        return in_speed * (1.f - slow_frac);
+    }
+
     ///instead of line normal use vertical
     ///aha: Fundamental issue, to_line can be wrong direction because we hit the vector from underneath
     ///stick physics still the issue
@@ -205,9 +232,9 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         }
 
         //vec2f projected = projection(next_pos - pos, dir);
-        //vec2f projected = dir.norm() * speed_modulate(clen, angle_between_vectors(dir, next_pos - pos));
+        vec2f projected = dir.norm() * speed_modulate(clen, angle_between_vectors(dir, next_pos - pos));
 
-        vec2f projected = dir.norm() * clen;
+        //vec2f projected = dir.norm() * clen;
 
         accumulate_shift += -to_line.norm();
 
