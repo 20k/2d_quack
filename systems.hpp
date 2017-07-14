@@ -3,6 +3,7 @@
 
 #include <SFML/Graphics.hpp>
 #include <vec/vec.hpp>
+#include <imgui/imgui.h>
 
 #define GRAVITY_STRENGTH 1600.f
 
@@ -171,6 +172,93 @@ struct moveable : virtual base_class
     bool on_default_side = false;
     float side_time = 0.f;
     float side_time_max = 0.100f;
+};
+
+struct jetpackable : virtual base_class
+{
+    float flight_time_max = 1.f;
+    float flight_time_left = flight_time_max;
+
+    float regen_flight_time = 3.f;
+
+    float force = GRAVITY_STRENGTH * 1.5;
+
+    bool should_jetpack = false;
+
+    vec2f activate(float dt_s)
+    {
+        vec2f ret;
+
+        flight_time_left -= dt_s;
+
+        if(flight_time_left > 0)
+        {
+            ret.y() = -1;
+        }
+
+        flight_time_left = clamp(flight_time_left, 0.f, flight_time_max);
+
+        return ret * force;
+    }
+
+    void idle(float dt_s)
+    {
+        flight_time_left += dt_s;
+
+        flight_time_left = clamp(flight_time_left, 0.f, flight_time_max);
+    }
+
+    vec2f tick(float dt_s)
+    {
+        if(should_jetpack)
+        {
+            should_jetpack = false;
+
+            return activate(dt_s);
+        }
+        else
+        {
+            idle(dt_s);
+
+            return {0, 0};
+        }
+    }
+
+    void render_ui()
+    {
+        ImGui::Begin("Jetpack UI");
+
+        float flight_frac = flight_time_left / flight_time_max;
+
+        constexpr int num_divisions = 10;
+
+        float num_filled = floor(flight_frac * num_divisions);
+
+        float extra = flight_frac * num_divisions - num_filled;
+
+        float vals[num_divisions];
+
+        for(int i=0; i<num_divisions; i++)
+        {
+            if(i < num_filled)
+            {
+                vals[i] = 1.f;
+            }
+            else if(i == num_filled)
+            {
+                vals[i] = extra;
+            }
+            else
+            {
+                vals[i] = 0;
+            }
+        }
+
+        //ImGui::PlotHistogram("Jetpack", &flight_frac, 1, 0, nullptr, 0, 1);
+        ImGui::PlotHistogram("", vals, num_divisions, 0, nullptr, 0, 1, ImVec2(100, 20));
+
+        ImGui::End();
+    }
 };
 
 #endif // SYSTEMS_HPP_INCLUDED

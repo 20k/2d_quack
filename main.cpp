@@ -907,7 +907,14 @@ int main()
             {
                 test->jump();
             }
+
+            if(mouse.isButtonPressed(sf::Mouse::Right))
+            {
+                test->should_jetpack = true;
+            }
         }
+
+        test->render_ui();
 
         if(win.hasFocus())
             controls.tick(st, test);

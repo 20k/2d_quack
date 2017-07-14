@@ -78,7 +78,7 @@ struct character : virtual character_base, virtual networkable_client, virtual d
 };
 
 ///this is a player character
-struct player_character : virtual character_base, virtual networkable_host, virtual damageable_host
+struct player_character : virtual character_base, virtual networkable_host, virtual damageable_host, virtual jetpackable
 {
     bool spawned = false;
     float spawn_timer = 0.f;
@@ -509,6 +509,10 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         //dt_f = 1.f;
 
         //float friction = 0.99f;
+
+        vec2f jetpack_force = jetpackable::tick(dt);
+
+        acceleration += jetpack_force;
 
         vec2f friction = {1.f, 1.f};
 
