@@ -520,9 +520,9 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + impulse;
         ///not sure if we need to factor in (dt + last_dt)/2 into impulse?
-        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + (impulse * dt);
+        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt * FORCE_MULTIPLIER + (impulse * dt) * FORCE_MULTIPLIER;
 
-        float max_speed = 0.85f;
+        float max_speed = 0.85f * FORCE_MULTIPLIER;
 
         /*if((next_pos - pos).length() > max_speed)
         {

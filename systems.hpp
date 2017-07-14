@@ -6,6 +6,7 @@
 #include <imgui/imgui.h>
 
 #define GRAVITY_STRENGTH 1600.f
+#define FORCE_MULTIPLIER 1.f
 
 struct state;
 

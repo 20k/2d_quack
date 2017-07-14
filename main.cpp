@@ -556,6 +556,39 @@ struct debug_controls
         }
     }*/
 
+    vec2f last_drag_pos;
+    bool has_last_drag = false;
+
+    void drag_line_tool(vec2f mpos, state& st)
+    {
+        if(suppress_mouse)
+            return;
+
+        sf::Mouse mouse;
+
+        if(!mouse.isButtonPressed(sf::Mouse::Left))
+        {
+            has_last_drag = false;
+
+            return;
+        }
+
+        float plonk_distance = 7.f;
+
+        if(has_last_drag && (mpos - last_drag_pos).length() > plonk_distance)
+        {
+            st.physics_barrier_manage.add_point(last_drag_pos, st);
+            st.physics_barrier_manage.add_point(mpos, st);
+
+            last_drag_pos = mpos;
+        }
+
+        if(!has_last_drag)
+            last_drag_pos = mpos;
+
+        has_last_drag = true;
+    }
+
     vec2f last_pos;
     bool has_last = false;
 
@@ -564,7 +597,7 @@ struct debug_controls
         if(suppress_mouse)
             return;
 
-        float separation = 10.f;
+        //float separation = 10.f;
 
         if(ONCE_MACRO(sf::Mouse::Left))
         {
@@ -587,7 +620,7 @@ struct debug_controls
 
         ImGui::Begin("Tools", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
-        std::vector<std::string> tools{"Line Draw", "Spawn Point", "Connected Line Tool"};
+        std::vector<std::string> tools{"Line Draw", "Spawn Point", "Connected Line Tool", "Drag Line Tool"};
 
         for(int i=0; i<tools.size(); i++)
         {
@@ -617,6 +650,11 @@ struct debug_controls
         if(tools_state == 2)
         {
             connected_line_tool(mpos, st);
+        }
+
+        if(tools_state == 3)
+        {
+            drag_line_tool(mpos, st);
         }
 
         if(ImGui::Button("Spawn Enemy"))
