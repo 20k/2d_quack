@@ -490,6 +490,22 @@ struct debug_controls
 
     int tools_state = 0;
 
+    float zoom_level = 1.f;
+
+    void zoom(float amount)
+    {
+        if(amount > 0)
+        {
+            //zoom_level = pow(zoom_level, amount + 1);
+
+            zoom_level *= pow(1.3, amount + 1);
+        }
+        else if(amount < 0)
+        {
+            zoom_level /= pow(1.3, fabs(amount) + 1);
+        }
+    }
+
     void line_draw_controls(vec2f mpos, state& st)
     {
         if(suppress_mouse)
@@ -859,7 +875,7 @@ int main()
 
         sf::Event event;
 
-        float scrollwheel_delta;
+        float scrollwheel_delta = 0;
 
         while(win.pollEvent(event))
         {
@@ -873,6 +889,13 @@ int main()
             if(event.type == sf::Event::MouseWheelScrolled && event.mouseWheelScroll.wheel == sf::Mouse::VerticalWheel)
                 scrollwheel_delta -= event.mouseWheelScroll.delta;
         }
+
+        if(fabs(scrollwheel_delta) > 0 && win.hasFocus() && !suppress_mouse)
+        {
+            controls.zoom(scrollwheel_delta);
+        }
+
+        cam.set_zoom(controls.zoom_level);
 
         ImGui::SFML::Update(clk.restart());
 

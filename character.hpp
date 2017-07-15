@@ -550,12 +550,12 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         vec2f acceleration_mult = {1,1};
 
-        if(stop)
+        if(stop && jetpack_force.length() <= 0.0001f)
         {
             acceleration_mult = {0,0};
         }
 
-        printf("%f\n", xv);
+        //printf("%f\n", xv);
 
         //vec2f next_pos_player_only = pos + (pos - last_pos) * dt_f * friction + player_acceleration * dt * dt;
 
@@ -599,7 +599,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         {
             float paccel_mult = 1.f;
 
-            if(!has_friction)
+            if(!has_friction || !stuck_to_surface)
             {
                 //if(!stuck_to_surface)
                 paccel_mult = 0.1f;

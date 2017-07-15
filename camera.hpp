@@ -34,10 +34,19 @@ struct camera
 
     void update_camera()
     {
+        auto dim = win.getSize();
+
+        view.setSize(dim.x * zoom, dim.y * zoom);
+
         view.setCenter(0,0);
         view.move(pos.x(), pos.y());
 
         win.setView(view);
+    }
+
+    void set_zoom(float pzoom)
+    {
+        zoom = pzoom;
     }
 };
 
