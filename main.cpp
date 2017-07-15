@@ -589,7 +589,7 @@ struct debug_controls
             return;
         }
 
-        float plonk_distance = 7.f;
+        float plonk_distance = 20.f;
 
         if(has_last_drag && (mpos - last_drag_pos).length() > plonk_distance)
         {

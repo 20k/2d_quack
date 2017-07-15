@@ -261,4 +261,51 @@ struct jetpackable : virtual base_class
     }
 };
 
+struct grappling_hookable : virtual renderable
+{
+    bool hooking = false;
+    vec2f destination;
+    vec2f source;
+
+    float max_dist = 20.f;
+
+    bool can_hook(vec2f dest, vec2f src) const
+    {
+        return (dest - src).length() < max_dist;
+    }
+
+    void hook(vec2f dest)
+    {
+        destination = dest;
+
+        hooking = true;
+    }
+
+    void unhook()
+    {
+        hooking = false;
+    }
+
+    void update_current_pos(vec2f pos)
+    {
+        source = pos;
+    }
+
+    virtual void render(sf::RenderWindow& win)
+    {
+        if(!hooking)
+            return;
+
+        sf::RectangleShape shape;
+
+        shape.setSize({(destination - source).length(), 2.f});
+        shape.setOrigin(0, 1);
+
+        shape.setPosition(source.x(), source.y());
+        shape.setRotation(r2d(source.angle()));
+
+        win.draw(shape);
+    }
+};
+
 #endif // SYSTEMS_HPP_INCLUDED

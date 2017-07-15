@@ -6,7 +6,7 @@
 struct projectile;
 
 ///do damage properly with pending damage in damageable
-struct character_base : virtual moveable, virtual renderable, virtual damageable_base, virtual collideable, virtual base_class, virtual network_serialisable
+struct character_base : virtual moveable, virtual renderable, virtual damageable_base, virtual collideable, virtual base_class, virtual network_serialisable, virtual grappling_hookable
 {
     character_base(int team) : collideable(team, collide::RAD)
     {
@@ -406,7 +406,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         if(any_crosses_with_normal(pos, next_pos, physics_barrier_manage))
         {
-            printf("clip\n");
+            //printf("clip\n");
         }
 
         bool failure_state = false;
@@ -434,10 +434,10 @@ struct player_character : virtual character_base, virtual networkable_host, virt
                 }
                 else
                 {
-                    printf("oops 2\n");
+                    //printf("oops 2\n");
                 }
 
-                printf("oops\n");
+                //printf("oops\n");
             }
         }
 
