@@ -26,6 +26,19 @@ struct character_base : virtual moveable, virtual renderable, virtual damageable
     {
         return hp > 0.f;
     }
+
+    virtual void render(sf::RenderWindow& win, vec2f pos)
+    {
+        if(!should_render)
+            return;
+
+        sf::Sprite spr(tex);
+        spr.setOrigin(tex.getSize().x/2, tex.getSize().y/2);
+        spr.setPosition({pos.x(), pos.y()});
+        spr.setColor(sf::Color(255 * col.x(), 255 * col.y(),255 * col.z()));
+
+        win.draw(spr);
+    }
 };
 
 ///slave network character
@@ -104,6 +117,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     float jump_cooldown_cur = 0.f;
     float jump_cooldown_time = 0.15f;
+
+    bool has_friction = true;
 
     player_character(int team, network_state& ns) : character_base(team), collideable(team, collide::RAD), networkable_host(ns), damageable_host(ns)
     {
@@ -327,6 +342,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         vec2f original_next = next_pos;
 
+        stuck_to_surface = false;
+
         for(physics_barrier* bar : physics_barrier_manage.objs)
         {
             if(crosses_with_normal(pos, next_pos, bar))
@@ -493,7 +510,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     void tick(float dt, state& st) override
     {
-        stuck_to_surface = false;
+        //stuck_to_surface = false;
         can_jump = false;
         jump_dir = {0,0};
 
@@ -516,11 +533,35 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         vec2f friction = {1.f, 1.f};
 
+        float xv = fabs(pos.x() - last_pos.x());
+
+        bool stop = false;
+
+        if(has_friction && stuck_to_surface)
+        {
+            friction = {0.95f, 0.98f};
+
+            if(xv < 0.1)
+            {
+                //friction.x() = 0.2f;
+                stop = true;
+            }
+        }
+
+        vec2f acceleration_mult = {1,1};
+
+        if(stop)
+        {
+            acceleration_mult = {0,0};
+        }
+
+        printf("%f\n", xv);
+
         //vec2f next_pos_player_only = pos + (pos - last_pos) * dt_f * friction + player_acceleration * dt * dt;
 
         //vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt + impulse;
         ///not sure if we need to factor in (dt + last_dt)/2 into impulse?
-        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * ((dt + last_dt)/2.f) * dt * FORCE_MULTIPLIER + (impulse * dt) * FORCE_MULTIPLIER;
+        vec2f next_pos = pos + (pos - last_pos) * dt_f * friction + acceleration * acceleration_mult * ((dt + last_dt)/2.f) * dt * FORCE_MULTIPLIER + (impulse * dt) * FORCE_MULTIPLIER;
 
         float max_speed = 0.85f * FORCE_MULTIPLIER;
 
@@ -556,7 +597,15 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         if(fabs((my_speed + my_acc).length()) < max_speed || (fabs((my_speed + my_acc).length()) < fabs(my_speed.length())))
         {
-            next_pos += player_acceleration * dt * dt;
+            float paccel_mult = 1.f;
+
+            if(!has_friction)
+            {
+                //if(!stuck_to_surface)
+                paccel_mult = 0.1f;
+            }
+
+            next_pos += player_acceleration * dt * dt * paccel_mult;
         }
 
         //vec2f next_pos = next_pos_player_only + acceleration * dt * dt + impulse;

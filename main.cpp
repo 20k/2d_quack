@@ -946,6 +946,15 @@ int main()
                 test->jump();
             }
 
+            if(key.isKeyPressed(sf::Keyboard::Space))
+            {
+                test->has_friction = false;
+            }
+            else
+            {
+                test->has_friction = true;
+            }
+
             if(mouse.isButtonPressed(sf::Mouse::Right))
             {
                 test->should_jetpack = true;

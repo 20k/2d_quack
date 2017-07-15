@@ -19,7 +19,6 @@ struct base_class
     virtual void on_cleanup(state& st) {}
 };
 
-
 struct renderable
 {
     sf::Image img;
