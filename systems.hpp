@@ -269,7 +269,7 @@ struct grappling_hookable : virtual renderable
     vec2f source;
     float cur_hook_dist = 0.f;
 
-    float max_hook_dist = 200.f;
+    float max_hook_dist = 300.f;
 
     bool can_hook(vec2f dest, vec2f src) const
     {
@@ -283,7 +283,7 @@ struct grappling_hookable : virtual renderable
 
         cur_hook_dist = (dest - src).length();
 
-        std::cout << "hook dist " << cur_hook_dist << std::endl;
+        //std::cout << "hook dist " << cur_hook_dist << std::endl;
 
         hooking = true;
     }

@@ -136,7 +136,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //printf("pp1\n");
 
-        std::cout << dest << " " << pos << std::endl;
+        //std::cout << dest << " " << pos << std::endl;
 
         //if(!can_hook(dest, pos))
         //    return;
@@ -149,8 +149,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         {
             vec2f line_point = point2line_intersection(bar->p1, bar->p2, pos, dest);
 
-            //if(!bar->within(line_point))
-            //    continue;
+            if(!bar->within(line_point))
+                continue;
 
             if(!bar->crosses(pos, dest))
                 continue;
@@ -172,7 +172,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         //vec2f grapple_point = dest;
 
-        std::cout << grapple_point << std::endl;
+        //std::cout << grapple_point << std::endl;
 
         hook(grapple_point, pos);
 
@@ -677,12 +677,6 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             vec2f old_next = next_pos;
 
             next_pos = grappling_hookable::apply_constraint(next_pos);
-
-            //vec2f diff = next_pos - old_next;
-
-            //pos += diff;
-
-            //next_pos = (next_pos - pos).norm() * approx_speed;
         }
 
         //vec2f next_pos = next_pos_player_only + acceleration * dt * dt + impulse;
