@@ -595,6 +595,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
         bool stop = false;
 
+        ///modify stuck to surface so we only grip if surface is within <angle> of vertical
         if(has_friction && stuck_to_surface)
         {
             friction = {0.95f, 0.98f};
@@ -676,7 +677,7 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
             vec2f old_next = next_pos;
 
-            next_pos = grappling_hookable::apply_constraint(next_pos);
+            next_pos = grappling_hookable::apply_constraint(next_pos, dt);
         }
 
         //vec2f next_pos = next_pos_player_only + acceleration * dt * dt + impulse;

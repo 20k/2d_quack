@@ -298,7 +298,7 @@ struct grappling_hookable : virtual renderable
         source = pos;
     }
 
-    vec2f apply_constraint(vec2f p1, vec2f anchor) const
+    vec2f apply_constraint(vec2f p1, vec2f anchor, float dt) const
     {
         float len = (anchor - p1).length();
 
@@ -309,14 +309,22 @@ struct grappling_hookable : virtual renderable
 
         vec2f to_anchor = (anchor - p1).norm();
 
-        vec2f constrained = p1 + to_anchor * extra;
+        float move_dist = dt * extra;
+
+        float stiffness = 1000000000000.f;
+
+        move_dist *= stiffness;
+
+        move_dist = clamp(move_dist, 0.f, extra);
+
+        vec2f constrained = p1 + to_anchor * move_dist;
 
         return constrained;
     }
 
-    vec2f apply_constraint(vec2f p1)
+    vec2f apply_constraint(vec2f p1, float dt)
     {
-        return apply_constraint(p1, destination);
+        return apply_constraint(p1, destination, dt);
     }
 
     virtual void render(sf::RenderWindow& win)
