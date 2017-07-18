@@ -261,22 +261,29 @@ struct jetpackable : virtual base_class
     }
 };
 
+///make this inherit from network stuff
 struct grappling_hookable : virtual renderable
 {
     bool hooking = false;
     vec2f destination;
     vec2f source;
+    float cur_hook_dist = 0.f;
 
-    float max_dist = 20.f;
+    float max_hook_dist = 200.f;
 
     bool can_hook(vec2f dest, vec2f src) const
     {
-        return (dest - src).length() < max_dist;
+        return (dest - src).length() < max_hook_dist;
     }
 
-    void hook(vec2f dest)
+    void hook(vec2f dest, vec2f src)
     {
         destination = dest;
+        source = src;
+
+        cur_hook_dist = (dest - src).length();
+
+        std::cout << "hook dist " << cur_hook_dist << std::endl;
 
         hooking = true;
     }
@@ -291,6 +298,27 @@ struct grappling_hookable : virtual renderable
         source = pos;
     }
 
+    vec2f apply_constraint(vec2f p1, vec2f anchor) const
+    {
+        float len = (anchor - p1).length();
+
+        if(len <= cur_hook_dist)
+            return p1;
+
+        float extra = len - cur_hook_dist;
+
+        vec2f to_anchor = (anchor - p1).norm();
+
+        vec2f constrained = p1 + to_anchor * extra;
+
+        return constrained;
+    }
+
+    vec2f apply_constraint(vec2f p1)
+    {
+        return apply_constraint(p1, destination);
+    }
+
     virtual void render(sf::RenderWindow& win)
     {
         if(!hooking)
@@ -302,9 +330,16 @@ struct grappling_hookable : virtual renderable
         shape.setOrigin(0, 1);
 
         shape.setPosition(source.x(), source.y());
-        shape.setRotation(r2d(source.angle()));
+        shape.setRotation(r2d((destination - source).angle()));
 
         win.draw(shape);
+
+        sf::CircleShape circle;
+        circle.setRadius(10.f);
+
+        circle.setPosition(destination.x(), destination.y());
+        circle.setPosition(source.x(), source.y());
+        //win.draw(circle);
     }
 };
 

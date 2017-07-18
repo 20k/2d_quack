@@ -691,7 +691,10 @@ struct debug_controls
 
     void player_controls(vec2f mpos, state& st, player_character* player)
     {
-        if(!suppress_mouse && ONCE_MACRO(sf::Mouse::Left))
+        if(suppress_mouse)
+            return;
+
+        if(ONCE_MACRO(sf::Mouse::Left))
         {
             vec2f ppos = player->pos;
 
@@ -713,6 +716,18 @@ struct debug_controls
 
             p->dir = to_mouse.norm() * 750.f + inherited;
             //p->speed = 1000 + ;
+        }
+
+        if(ONCE_MACRO(sf::Mouse::Middle))
+        {
+            player->fire_grapple(mpos, st);
+        }
+
+        sf::Mouse mouse;
+
+        if(!mouse.isButtonPressed(sf::Mouse::Middle))
+        {
+            player->unhook();
         }
     }
 

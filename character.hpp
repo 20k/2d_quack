@@ -87,6 +87,8 @@ struct character : virtual character_base, virtual networkable_client, virtual d
             return;
 
         renderable::render(win, pos);
+
+        grappling_hookable::render(win);
     }
 };
 
@@ -125,6 +127,58 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     }
 
+    void fire_grapple(vec2f dest, state& st)
+    {
+        physics_barrier_manager& physics_barrier_manage = st.physics_barrier_manage;
+
+        if((dest - pos).length() < 1)
+            return;
+
+        //printf("pp1\n");
+
+        std::cout << dest << " " << pos << std::endl;
+
+        //if(!can_hook(dest, pos))
+        //    return;
+
+        vec2f dir = (dest - pos).norm();
+
+        float min_dist = FLT_MAX;
+
+        for(physics_barrier* bar : physics_barrier_manage.objs)
+        {
+            vec2f line_point = point2line_intersection(bar->p1, bar->p2, pos, dest);
+
+            //if(!bar->within(line_point))
+            //    continue;
+
+            if(!bar->crosses(pos, dest))
+                continue;
+
+            float line_dist = (line_point - pos).length();
+
+            if(line_dist < min_dist && line_dist < max_hook_dist)
+            {
+                min_dist = line_dist;
+            }
+        }
+
+        //printf("pp2\n");
+
+        if(min_dist == FLT_MAX)
+            return;
+
+        vec2f grapple_point = pos + dir * min_dist;
+
+        //vec2f grapple_point = dest;
+
+        std::cout << grapple_point << std::endl;
+
+        hook(grapple_point, pos);
+
+        //printf("confirm hook\n");
+    }
+
     /*void on_collide(collideable* other)
     {
         if(dynamic_cast<projectile*>(other) != nullptr)
@@ -139,6 +193,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
         //    return;
 
         renderable::render(win, pos);
+
+        grappling_hookable::render(win);
     }
 
     vec2f last_resort_physics(vec2f next_pos, physics_barrier* bar)
@@ -510,6 +566,8 @@ struct player_character : virtual character_base, virtual networkable_host, virt
 
     void tick(float dt, state& st) override
     {
+        grappling_hookable::update_current_pos(pos);
+
         //stuck_to_surface = false;
         can_jump = false;
         jump_dir = {0,0};
@@ -606,6 +664,25 @@ struct player_character : virtual character_base, virtual networkable_host, virt
             }
 
             next_pos += player_acceleration * dt * dt * paccel_mult;
+        }
+
+        ///RESOLVE PHYSICS CONSTRAINTS
+        ///if we ever need any other physics constraints of any description whatsoever
+        ///create a proper constraint system
+
+        if(hooking)
+        {
+            float approx_speed = (next_pos - pos).length();
+
+            vec2f old_next = next_pos;
+
+            next_pos = grappling_hookable::apply_constraint(next_pos);
+
+            //vec2f diff = next_pos - old_next;
+
+            //pos += diff;
+
+            //next_pos = (next_pos - pos).norm() * approx_speed;
         }
 
         //vec2f next_pos = next_pos_player_only + acceleration * dt * dt + impulse;
