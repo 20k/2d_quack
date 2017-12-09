@@ -222,10 +222,10 @@ struct network_state
         udp_send_to(sock, cv.ptr, (const sockaddr*)&store);
     }
 
-    int16_t get_next_object_id()
+    /*int16_t get_next_object_id()
     {
         return next_object_id++;
-    }
+    }*/
 
     template<typename manager_type, typename real_type>
     void check_create_network_entity(manager_type& generic_manager)
